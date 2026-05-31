@@ -741,7 +741,6 @@ async function loadProfile(){
   myProfile=data;
   myUsername=data.username;
   loadSavedContacts();
-  loadAvatars();
   startApp();
 }
 
@@ -854,16 +853,18 @@ function closeChat() {
 }
 
 // ── START APP ──
-function startApp(){
+async function startApp(){
   showScreen(null);
   document.getElementById('app').style.display='flex';
   fillProfilePanel();
   requestNotificationPermission();
-  
   closeChat();
-  
+  await loadGroups();
+  await loadAvatars();
+  updateContactsPanel();
+  fillProfilePanel();
+  updateHeaderState();
   initChat();
-  loadGroups();
   loadStories();
 }
 
@@ -913,38 +914,41 @@ function fillProfilePanel(){
   document.getElementById('editBio').value=myProfile?.bio||'';
 }
 
-// ── AVATAR UPLOAD ──
+// ── AVATAR UPLOAD (DB) ──
 function handleAvatarSelect(input) {
   const file = input.files[0];
   if(!file) return;
   if(file.size > 1.5 * 1024 * 1024) { toast('Fotoğraf çok büyük (Maks. 1.5MB)!'); return; }
   const reader = new FileReader();
   reader.onload = async (e) => {
-    myAvatarUrl = e.target.result;
-    // Save to localStorage
-    localStorage.setItem('yam-avatar-' + myUsername, myAvatarUrl);
-    avatarCache[myUsername] = myAvatarUrl;
+    const dataUrl = e.target.result;
+    const { error } = await db.from('profiles').update({ avatar_url: dataUrl }).eq('id', myUser.id);
+    if(error) { toast('Fotoğraf kaydedilemedi!'); return; }
+    myAvatarUrl = dataUrl;
+    avatarCache[myUsername] = dataUrl;
+    myProfile = { ...myProfile, avatar_url: dataUrl };
     fillProfilePanel();
     updateHeaderState();
-    renderStories(await getStoriesData());
+    renderStories(_lastStoriesData);
     toast('Profil fotoğrafı güncellendi ✓');
   };
   reader.readAsDataURL(file);
 }
 
-function loadAvatars() {
-  myAvatarUrl = localStorage.getItem('yam-avatar-' + myUsername) || null;
+async function loadAvatars() {
+  // Kendi avatar
+  myAvatarUrl = myProfile?.avatar_url || null;
   if(myAvatarUrl) avatarCache[myUsername] = myAvatarUrl;
-  // Load contacts' avatars
-  Object.keys(myContacts).forEach(u => {
-    const av = localStorage.getItem('yam-avatar-' + u);
-    if(av) avatarCache[u] = av;
-  });
-  // Load group avatars
-  groupsList.forEach(g => {
-    const av = localStorage.getItem('yam-avatar-group-' + g.id);
-    if(av) groupAvatarCache[g.id] = av;
-  });
+
+  // Rehberdeki kişilerin avatarları
+  const usernames = Object.keys(myContacts);
+  if(usernames.length > 0) {
+    const { data } = await db.from('profiles').select('username, avatar_url').in('username', usernames);
+    (data || []).forEach(p => { if(p.avatar_url) avatarCache[p.username] = p.avatar_url; });
+  }
+
+  // Grup avatarları (loadGroups içinde zaten groups tablosundan çekiliyor)
+  groupsList.forEach(g => { if(g.avatar_url) groupAvatarCache[g.id] = g.avatar_url; });
 }
 
 // Helper to get cached stories data for re-render
@@ -1001,9 +1005,9 @@ async function addNewContact() {
   const username = data.username;
   myContacts[username] = { email: email, customName: customName };
   saveContacts();
-  // Try to load their avatar from localStorage
-  const av = localStorage.getItem('yam-avatar-' + username);
-  if(av) avatarCache[username] = av;
+  // Yeni kişinin avatarını DB'den çek
+  const { data: avData } = await db.from('profiles').select('avatar_url').eq('username', username).single();
+  if(avData?.avatar_url) avatarCache[username] = avData.avatar_url;
   closeAllPanels();
   updateContactsPanel();
   loadStories(); // Rehber güncellendiği için durumları tekrar yükle
@@ -1247,11 +1251,8 @@ function updateContactsPanel(){
 async function loadGroups(){
   const{data}=await db.from('groups').select('*').order('created_at',{ascending:false});
   groupsList=data||[];
-  // Load group avatars from localStorage
-  groupsList.forEach(g => {
-    const av = localStorage.getItem('yam-avatar-group-' + g.id);
-    if(av) groupAvatarCache[g.id] = av;
-  });
+  // avatar_url doğrudan groups tablosundan geliyor
+  groupsList.forEach(g => { if(g.avatar_url) groupAvatarCache[g.id] = g.avatar_url; });
   updateContactsPanel();
 }
 
@@ -1565,9 +1566,9 @@ function openGroupSettings(groupId) {
   if(!group) return;
   document.getElementById('editGroupName').value = group.name;
 
-  // Grup avatarını göster
+  // Grup avatarını göster (DB'den geliyor)
   const avEl = document.getElementById('groupSettingsAv');
-  const groupAv = localStorage.getItem('yam-avatar-group-' + groupId);
+  const groupAv = groupAvatarCache[groupId];
   if(groupAv) {
     avEl.innerHTML = `<img src="${groupAv}" style="width:100%;height:100%;object-fit:cover;border-radius:22px">`;
     avEl.style.background = 'none';
@@ -1585,21 +1586,24 @@ function openGroupSettings(groupId) {
   ov.style.display = 'block'; setTimeout(()=>ov.classList.add('open'),10);
 }
 
-// ── GROUP AVATAR UPLOAD ──
+// ── GROUP AVATAR UPLOAD (DB) ──
 function handleGroupAvatarSelect(input) {
   const file = input.files[0];
   if(!file) return;
   if(file.size > 1.5 * 1024 * 1024) { toast('Fotoğraf çok büyük (Maks. 1.5MB)!'); return; }
   const reader = new FileReader();
-  reader.onload = (e) => {
-    const data = e.target.result;
+  reader.onload = async (e) => {
+    const dataUrl = e.target.result;
     const groupId = currentGroupSettingsId;
-    localStorage.setItem('yam-avatar-group-' + groupId, data);
-    groupAvatarCache[groupId] = data;
+    const { error } = await db.from('groups').update({ avatar_url: dataUrl }).eq('id', groupId);
+    if(error) { toast('Fotoğraf kaydedilemedi!'); return; }
+    groupAvatarCache[groupId] = dataUrl;
+    const g = groupsList.find(g=>g.id===groupId);
+    if(g) g.avatar_url = dataUrl;
 
     // Paneldeki avatarı güncelle
     const avEl = document.getElementById('groupSettingsAv');
-    avEl.innerHTML = `<img src="${data}" style="width:100%;height:100%;object-fit:cover;border-radius:22px">`;
+    avEl.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:22px">`;
     avEl.style.background = 'none';
     avEl.className = 'pu-av';
 
