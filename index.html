@@ -282,6 +282,36 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .av6{background:linear-gradient(135deg,#14b8a6,#0d9488)}.av7{background:linear-gradient(135deg,#6366f1,#4f46e5)}
 
 @media(max-width:400px){.auth-card{padding:36px 20px}.otp-digit{width:42px;height:54px;font-size:20px}}
+
+/* ── AVATAR UPLOAD ── */
+.avatar-upload-wrap{position:relative;width:64px;height:64px;cursor:pointer}
+.avatar-upload-wrap:hover .avatar-upload-overlay{opacity:1}
+.avatar-upload-overlay{position:absolute;inset:0;border-radius:20px;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:18px;opacity:0;transition:.2s;color:#fff}
+.profile-av-real{width:64px;height:64px;border-radius:20px;border:3px solid var(--surface);box-shadow:0 8px 20px rgba(0,0,0,0.15);object-fit:cover}
+.header-av-img{width:42px;height:42px;border-radius:14px;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.1)}
+
+/* ── STORY TAP ZONES ── */
+.story-tap-left{position:absolute;left:0;top:0;bottom:0;width:40%;z-index:5;cursor:pointer}
+.story-tap-right{position:absolute;right:0;top:0;bottom:0;width:40%;z-index:5;cursor:pointer}
+
+/* ── STORY VIEWERS ── */
+.story-viewers-btn{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);border-radius:20px;padding:8px 20px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;backdrop-filter:blur(6px);z-index:10;display:none}
+.story-viewers-btn.visible{display:block}
+.story-viewers-sheet{position:fixed;inset:0;z-index:600;display:none;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.5)}
+.story-viewers-sheet.open{display:flex}
+.story-viewers-card{background:var(--surface);border-radius:24px 24px 0 0;padding:20px 0 32px;max-height:60vh;display:flex;flex-direction:column}
+.story-viewers-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+.story-viewers-title{font-size:15px;font-weight:700;color:var(--text);text-align:center;margin-bottom:12px;padding:0 20px}
+.story-viewers-list{overflow-y:auto;flex:1}
+.story-viewer-row{display:flex;align-items:center;gap:12px;padding:11px 20px}
+.story-viewer-row:hover{background:var(--bg)}
+
+/* ── GROUP SETTINGS PANEL ── */
+.group-member-row{display:flex;align-items:center;gap:12px;padding:10px 18px;transition:background .15s}
+.group-member-row:hover{background:var(--bg)}
+.group-member-role{font-size:11px;color:var(--primary);font-weight:700;margin-left:auto;background:var(--primary-light);padding:2px 8px;border-radius:10px}
+.kick-btn{background:none;border:1px solid var(--danger);color:var(--danger);border-radius:8px;padding:3px 9px;font-size:11px;cursor:pointer;margin-left:8px;transition:.2s}
+.kick-btn:hover{background:rgba(239,68,68,.1)}
 </style>
 </head>
 <body>
@@ -354,6 +384,9 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
       <button class="hbtn" onclick="openGroupCreate()" title="Grup Oluştur">👥</button>
       <button class="hbtn" onclick="openSettings()" title="Ayarlar">⚙️</button>
     </div>
+    <div class="header-actions" id="actionsChat" style="display:none">
+      <button class="hbtn" id="groupSettingsBtn" style="display:none" onclick="openGroupSettingsCurrent()" title="Grup Ayarları">⚙️</button>
+    </div>
   </div>
 
   <!-- MAIN VIEW (Sohbet Listesi) -->
@@ -416,7 +449,11 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   <div class="panel-body">
     <div class="profile-cover">
       <div class="profile-av-wrap">
-        <div class="profile-av av7" id="profileAv">?</div>
+        <div class="avatar-upload-wrap" onclick="document.getElementById('avatarFileInput').click()" title="Fotoğraf değiştir">
+          <div class="profile-av av7" id="profileAv">?</div>
+          <div class="avatar-upload-overlay">📷</div>
+        </div>
+        <input type="file" id="avatarFileInput" accept="image/*" style="display:none" onchange="handleAvatarSelect(this)">
       </div>
     </div>
     <div class="profile-info">
@@ -475,9 +512,55 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   </div>
 </div>
 
+<!-- GROUP SETTINGS PANEL -->
+<div class="panel" id="groupSettingsPanel">
+  <div class="panel-head">
+    <button class="panel-back" onclick="closeAllPanels()">✕</button>
+    <div class="panel-title">Grup Ayarları</div>
+  </div>
+  <div class="panel-body">
+    <!-- Group Avatar -->
+    <div style="display:flex;flex-direction:column;align-items:center;padding:20px 18px 8px">
+      <div class="avatar-upload-wrap" style="width:80px;height:80px" onclick="document.getElementById('groupAvatarInput').click()" title="Grup fotoğrafı değiştir">
+        <div id="groupSettingsAv" class="pu-av av4" style="width:80px;height:80px;border-radius:22px;font-size:28px">#</div>
+        <div class="avatar-upload-overlay" style="border-radius:22px">📷</div>
+      </div>
+      <input type="file" id="groupAvatarInput" accept="image/*" style="display:none" onchange="handleGroupAvatarSelect(this)">
+      <div style="font-size:12px;color:var(--muted);margin-top:8px">Fotoğraf eklemek için tıklayın</div>
+    </div>
+    <div class="profile-section">
+      <label>Grup Adı</label>
+      <input class="profile-inp" id="editGroupName" type="text" maxlength="30">
+    </div>
+    <button class="save-btn" onclick="saveGroupName()">Kaydet ✓</button>
+    <div class="sec-label" style="padding-top:8px">Üyeler</div>
+    <div id="groupSettingsMemberList"></div>
+    <div style="padding:12px 18px">
+      <button class="save-btn" style="background:var(--border);color:var(--text);box-shadow:none" onclick="openAddMemberToGroup()">👤+ Kişi Ekle</button>
+    </div>
+    <div style="padding:0 18px 16px">
+      <button class="danger-btn" style="width:100%" onclick="leaveOrDeleteGroup()">Gruptan Ayrıl</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD MEMBER TO GROUP PANEL -->
+<div class="panel" id="addMemberPanel">
+  <div class="panel-head">
+    <button class="panel-back" onclick="openGroupSettings(currentGroupSettingsId)">←</button>
+    <div class="panel-title">Kişi Ekle</div>
+  </div>
+  <div class="panel-body">
+    <div id="addMemberList" style="padding:4px 0"></div>
+  </div>
+</div>
+
 <!-- STORY VIEWER -->
 <div id="storyViewer">
   <div class="story-bg"></div>
+  <!-- Tap zones for prev/next -->
+  <div class="story-tap-left" onclick="storyTapLeft()"></div>
+  <div class="story-tap-right" onclick="storyTapRight()"></div>
   <div class="story-progress" id="storyProgress"></div>
   <div class="story-viewer-head">
     <div class="story-viewer-av" id="svAv">?</div>
@@ -491,6 +574,17 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
     <div class="story-emoji" id="svEmoji">✨</div>
     <div id="svMediaWrap"></div>
     <div class="story-text" id="svText">—</div>
+  </div>
+  <!-- Viewers button (only shown for own stories) -->
+  <button class="story-viewers-btn" id="storyViewersBtn" onclick="openStoryViewers()">👁 Görenleri Gör</button>
+</div>
+
+<!-- STORY VIEWERS SHEET -->
+<div class="story-viewers-sheet" id="storyViewersSheet" onclick="closeStoryViewers()">
+  <div class="story-viewers-card" onclick="event.stopPropagation()">
+    <div class="story-viewers-handle"></div>
+    <div class="story-viewers-title" id="storyViewersTitle">Durumu Görenler</div>
+    <div class="story-viewers-list" id="storyViewersList"></div>
   </div>
 </div>
 
@@ -534,6 +628,11 @@ let selectedGroupMembers=new Set();
 let otpEmail='';
 let storyMediaData=null, storyMediaType=null;
 let myContacts = {}; // { username: { email: "...", customName: "..." } }
+let myAvatarUrl = null; // base64 or URL for own avatar
+let avatarCache = {}; // { username: url } for other users
+let groupAvatarCache = {}; // { groupId: url } for groups
+let currentGroupSettingsId = null; // group id being edited
+let storyViewsCache = {}; // { storyId: [username,...] }
 
 const colorMap={};
 const COLS=['av0','av1','av2','av3','av4','av5','av6','av7'];
@@ -642,6 +741,7 @@ async function loadProfile(){
   myProfile=data;
   myUsername=data.username;
   loadSavedContacts();
+  loadAvatars();
   startApp();
 }
 
@@ -687,26 +787,47 @@ function updateHeaderState() {
   const chatTitle = document.getElementById('chatTitle');
   const chatStatus = document.getElementById('headerStatus');
   const actionsMain = document.getElementById('actionsMain');
+  const actionsChat = document.getElementById('actionsChat');
+  const groupSettingsBtn = document.getElementById('groupSettingsBtn');
 
   if(currentChat) {
     backBtn.style.display = 'flex';
     myAv.style.display = 'none';
     chatAv.style.display = 'flex';
     actionsMain.style.display = 'none';
+    actionsChat.style.display = 'flex';
     chatStatus.style.display = 'block';
     
+    if(currentChatType === 'group') {
+      groupSettingsBtn.style.display = 'flex';
+    } else {
+      groupSettingsBtn.style.display = 'none';
+    }
+    
     const displayName = currentChatType === 'group' ? '# ' + currentChat : getDisplayName(currentChat);
-    chatTitle.textContent = displayName;
-    chatAv.textContent = ini(displayName);
+    chatTitle.textContent = currentChatType === 'group' ? ('# ' + (groupsList.find(g=>g.id===currentChat)?.name || currentChat)) : getDisplayName(currentChat);
+    chatAv.textContent = ini(chatTitle.textContent);
     chatAv.className = 'header-avatar ' + (currentChatType === 'group' ? 'av4' : col(currentChat));
+    // show avatar image if available
+    const avImg = currentChatType === 'group' ? groupAvatarCache[currentChat] : avatarCache[currentChat];
+    if(avImg) {
+      chatAv.innerHTML = `<img src="${avImg}" class="header-av-img">`;
+    }
     chatStatus.textContent = currentChatType === 'group' ? 'Grup Sohbeti' : (onlineUsers[currentChat] ? 'Çevrimiçi' : 'Çevrimdışı');
   } else {
     backBtn.style.display = 'none';
     myAv.style.display = 'flex';
-    myAv.textContent = ini(myUsername);
-    myAv.className = 'header-avatar ' + col(myUsername);
+    // show my avatar image if available
+    if(myAvatarUrl) {
+      myAv.innerHTML = `<img src="${myAvatarUrl}" class="header-av-img">`;
+      myAv.className = 'header-avatar';
+    } else {
+      myAv.textContent = ini(myUsername);
+      myAv.className = 'header-avatar ' + col(myUsername);
+    }
     chatAv.style.display = 'none';
     actionsMain.style.display = 'flex';
+    actionsChat.style.display = 'none';
     chatStatus.style.display = 'none';
     
     chatTitle.textContent = 'YAM Sohbetler';
@@ -774,14 +895,62 @@ function sendNotification(title,body){
 }
 
 function fillProfilePanel(){
-  document.getElementById('profileAv').textContent=ini(myUsername);
-  document.getElementById('profileAv').className='profile-av '+col(myUsername);
+  const avEl = document.getElementById('profileAv');
+  if(myAvatarUrl) {
+    avEl.innerHTML = `<img src="${myAvatarUrl}" class="profile-av-real">`;
+    avEl.className = 'profile-av';
+    avEl.style.background = 'none';
+  } else {
+    avEl.innerHTML = ini(myUsername);
+    avEl.className = 'profile-av ' + col(myUsername);
+    avEl.style.background = '';
+  }
   document.getElementById('profileUname').textContent=myUsername;
   document.getElementById('profileEmail').textContent=myEmail;
   document.getElementById('profileStatusText').textContent=myProfile?.status||'';
   document.getElementById('editUsername').value=myUsername;
   document.getElementById('editStatus').value=myProfile?.status||'';
   document.getElementById('editBio').value=myProfile?.bio||'';
+}
+
+// ── AVATAR UPLOAD ──
+function handleAvatarSelect(input) {
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 1.5 * 1024 * 1024) { toast('Fotoğraf çok büyük (Maks. 1.5MB)!'); return; }
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    myAvatarUrl = e.target.result;
+    // Save to localStorage
+    localStorage.setItem('yam-avatar-' + myUsername, myAvatarUrl);
+    avatarCache[myUsername] = myAvatarUrl;
+    fillProfilePanel();
+    updateHeaderState();
+    renderStories(await getStoriesData());
+    toast('Profil fotoğrafı güncellendi ✓');
+  };
+  reader.readAsDataURL(file);
+}
+
+function loadAvatars() {
+  myAvatarUrl = localStorage.getItem('yam-avatar-' + myUsername) || null;
+  if(myAvatarUrl) avatarCache[myUsername] = myAvatarUrl;
+  // Load contacts' avatars
+  Object.keys(myContacts).forEach(u => {
+    const av = localStorage.getItem('yam-avatar-' + u);
+    if(av) avatarCache[u] = av;
+  });
+  // Load group avatars
+  groupsList.forEach(g => {
+    const av = localStorage.getItem('yam-avatar-group-' + g.id);
+    if(av) groupAvatarCache[g.id] = av;
+  });
+}
+
+// Helper to get cached stories data for re-render
+let _lastStoriesData = [];
+async function getStoriesData() {
+  return _lastStoriesData;
 }
 
 // ── SETTINGS ──
@@ -832,6 +1001,9 @@ async function addNewContact() {
   const username = data.username;
   myContacts[username] = { email: email, customName: customName };
   saveContacts();
+  // Try to load their avatar from localStorage
+  const av = localStorage.getItem('yam-avatar-' + username);
+  if(av) avatarCache[username] = av;
   closeAllPanels();
   updateContactsPanel();
   loadStories(); // Rehber güncellendiği için durumları tekrar yükle
@@ -1020,8 +1192,14 @@ function updateContactsPanel(){
       const sl=document.createElement('div');sl.className='sec-label';sl.textContent='Gruplar';pl.appendChild(sl);
       groupItems.forEach(g=>{
         hasItems = true;
-        const d=document.createElement('div');d.className='pu';d.onclick=()=>switchChat(g.id,'group');
-        d.innerHTML=`<div class="pu-av av4">#</div><div><div class="pu-name">${esc(g.name)}</div><div class="pu-sub" style="color:var(--muted)">${g.members.length} üye</div></div>`;
+        const d=document.createElement('div');d.className='pu';
+        const isAdmin = g.created_by === myUsername;
+        const gAvImg = groupAvatarCache[g.id];
+        const gAvHtml = gAvImg
+          ? `<img src="${gAvImg}" style="width:46px;height:46px;border-radius:14px;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.1)">`
+          : `<div class="pu-av av4">#</div>`;
+        d.innerHTML=`${gAvHtml}<div style="flex:1"><div class="pu-name">${esc(g.name)}</div><div class="pu-sub" style="color:var(--muted)">${g.members.length} üye</div></div>${isAdmin?'<span style="font-size:12px;color:var(--primary);font-weight:700;background:var(--primary-light);padding:2px 8px;border-radius:10px;margin-right:4px">Yönetici</span>':''}<button onclick="event.stopPropagation();openGroupSettings('${g.id}')" style="background:var(--bg);border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0" title="Grup Ayarları">⚙️</button>`;
+        d.onclick=()=>switchChat(g.id,'group');
         pl.appendChild(d);
       });
     }
@@ -1069,6 +1247,11 @@ function updateContactsPanel(){
 async function loadGroups(){
   const{data}=await db.from('groups').select('*').order('created_at',{ascending:false});
   groupsList=data||[];
+  // Load group avatars from localStorage
+  groupsList.forEach(g => {
+    const av = localStorage.getItem('yam-avatar-group-' + g.id);
+    if(av) groupAvatarCache[g.id] = av;
+  });
   updateContactsPanel();
 }
 
@@ -1129,10 +1312,12 @@ function toggleGroupMember(username){
 // ── STORIES ──
 async function loadStories(){
   const{data}=await db.from('stories').select('*').order('created_at',{ascending:false});
-  renderStories(data||[]);
+  _lastStoriesData = data || [];
+  renderStories(_lastStoriesData);
 }
 
 function renderStories(stories){
+  _lastStoriesData = stories;
   const bar=document.getElementById('storiesBar');
   bar.innerHTML=`<div class="story-item story-add" onclick="openAddStory()"><div class="story-ring"><div class="story-inner">＋</div></div><div class="story-name">Durum</div></div>`;
 
@@ -1146,7 +1331,11 @@ function renderStories(stories){
     const item=document.createElement('div');item.className='story-item';
     const c=col(username);
     const displayName = getDisplayName(username);
-    item.innerHTML=`<div class="story-ring"><div class="story-inner avatar-bg ${c}">${ini(displayName)}</div></div><div class="story-name">${esc(displayName)}</div>`;
+    const avImg = avatarCache[username];
+    const innerContent = avImg
+      ? `<img src="${avImg}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+      : `<span class="avatar-bg ${c}" style="width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff">${ini(displayName)}</span>`;
+    item.innerHTML=`<div class="story-ring"><div class="story-inner">${innerContent}</div></div><div class="story-name">${esc(displayName)}</div>`;
     item.onclick=()=>viewStories(ss,username);
     bar.appendChild(item);
   });
@@ -1217,6 +1406,40 @@ function viewStories(stories,username){
   document.getElementById('storyViewer').classList.add('open');
   renderStoryViewer();
   startStoryTimer();
+  // Record view for each story (only if not our own)
+  stories.forEach(s => {
+    if(s.username !== myUsername) {
+      recordStoryView(s.id, s.username);
+    }
+  });
+}
+
+async function recordStoryView(storyId, ownerUsername) {
+  // Store views in localStorage keyed by storyId
+  const key = 'yam-story-views-' + storyId;
+  try {
+    let views = JSON.parse(localStorage.getItem(key) || '[]');
+    if(!views.includes(myUsername)) {
+      views.push(myUsername);
+      localStorage.setItem(key, JSON.stringify(views));
+    }
+  } catch(e) {}
+}
+
+function getStoryViews(storyId) {
+  try {
+    return JSON.parse(localStorage.getItem('yam-story-views-' + storyId) || '[]');
+  } catch(e) { return []; }
+}
+
+function storyTapLeft() {
+  if(storyIdx > 0) { storyIdx--; renderStoryViewer(); startStoryTimer(); }
+  else closeStory();
+}
+
+function storyTapRight() {
+  if(storyIdx < currentStories.length - 1) { storyIdx++; renderStoryViewer(); startStoryTimer(); }
+  else closeStory();
 }
 
 function renderStoryViewer(){
@@ -1225,8 +1448,15 @@ function renderStoryViewer(){
   bg.style.background=`linear-gradient(135deg, hsl(${storyIdx*60+200},70%,40%), hsl(${storyIdx*60+260},70%,30%))`;
   
   const displayName = getDisplayName(s.username);
-  document.getElementById('svAv').textContent=ini(displayName);
-  document.getElementById('svAv').className='story-viewer-av '+col(s.username);
+  const svAv = document.getElementById('svAv');
+  const avImg = avatarCache[s.username];
+  if(avImg) {
+    svAv.innerHTML = `<img src="${avImg}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`;
+    svAv.className = 'story-viewer-av';
+  } else {
+    svAv.textContent = ini(displayName);
+    svAv.className = 'story-viewer-av ' + col(s.username);
+  }
   document.getElementById('svName').textContent=displayName;
   document.getElementById('svTime').textContent=timeAgo(s.created_at);
   document.getElementById('svEmoji').textContent=s.emoji;
@@ -1256,6 +1486,46 @@ function renderStoryViewer(){
     if(i<storyIdx)fill.style.width='100%';
     bar.appendChild(fill);prog.appendChild(bar);
   });
+  
+  // Show viewers button only for own stories
+  const viewersBtn = document.getElementById('storyViewersBtn');
+  if(s.username === myUsername) {
+    viewersBtn.classList.add('visible');
+    const views = getStoryViews(s.id);
+    viewersBtn.textContent = `👁 ${views.length} kişi gördü`;
+  } else {
+    viewersBtn.classList.remove('visible');
+  }
+}
+
+function openStoryViewers() {
+  const s = currentStories[storyIdx];
+  if(!s || s.username !== myUsername) return;
+  const views = getStoryViews(s.id);
+  const sheet = document.getElementById('storyViewersSheet');
+  const list = document.getElementById('storyViewersList');
+  document.getElementById('storyViewersTitle').textContent = `👁 ${views.length} kişi gördü`;
+  list.innerHTML = '';
+  if(!views.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:14px">Henüz kimse görmedi</div>';
+  } else {
+    views.forEach(u => {
+      const displayName = getDisplayName(u);
+      const avImg = avatarCache[u];
+      const row = document.createElement('div');
+      row.className = 'story-viewer-row';
+      const avHtml = avImg
+        ? `<img src="${avImg}" style="width:38px;height:38px;border-radius:12px;object-fit:cover">`
+        : `<div style="width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff" class="${col(u)}">${ini(displayName)}</div>`;
+      row.innerHTML = `${avHtml}<div><div style="font-size:14px;font-weight:600;color:var(--text)">${esc(displayName)}</div><div style="font-size:12px;color:var(--muted)">${u}</div></div>`;
+      list.appendChild(row);
+    });
+  }
+  sheet.classList.add('open');
+}
+
+function closeStoryViewers() {
+  document.getElementById('storyViewersSheet').classList.remove('open');
 }
 
 function startStoryTimer(){
@@ -1280,6 +1550,176 @@ function closeStory(){
   clearInterval(storyTimer);
   document.getElementById('svMediaWrap').innerHTML = '';
   document.getElementById('storyViewer').classList.remove('open');
+}
+
+// ── GROUP SETTINGS ──
+function openGroupSettingsCurrent() {
+  if(currentChat && currentChatType === 'group') {
+    openGroupSettings(currentChat);
+  }
+}
+
+function openGroupSettings(groupId) {
+  currentGroupSettingsId = groupId;
+  const group = groupsList.find(g => g.id === groupId);
+  if(!group) return;
+  document.getElementById('editGroupName').value = group.name;
+
+  // Grup avatarını göster
+  const avEl = document.getElementById('groupSettingsAv');
+  const groupAv = localStorage.getItem('yam-avatar-group-' + groupId);
+  if(groupAv) {
+    avEl.innerHTML = `<img src="${groupAv}" style="width:100%;height:100%;object-fit:cover;border-radius:22px">`;
+    avEl.style.background = 'none';
+    avEl.className = 'pu-av';
+  } else {
+    avEl.innerHTML = '#';
+    avEl.style.background = '';
+    avEl.className = 'pu-av av4';
+  }
+
+  renderGroupSettingsMemberList(group);
+  closeAllPanels();
+  document.getElementById('groupSettingsPanel').classList.add('open');
+  const ov = document.getElementById('overlay');
+  ov.style.display = 'block'; setTimeout(()=>ov.classList.add('open'),10);
+}
+
+// ── GROUP AVATAR UPLOAD ──
+function handleGroupAvatarSelect(input) {
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 1.5 * 1024 * 1024) { toast('Fotoğraf çok büyük (Maks. 1.5MB)!'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const data = e.target.result;
+    const groupId = currentGroupSettingsId;
+    localStorage.setItem('yam-avatar-group-' + groupId, data);
+    groupAvatarCache[groupId] = data;
+
+    // Paneldeki avatarı güncelle
+    const avEl = document.getElementById('groupSettingsAv');
+    avEl.innerHTML = `<img src="${data}" style="width:100%;height:100%;object-fit:cover;border-radius:22px">`;
+    avEl.style.background = 'none';
+    avEl.className = 'pu-av';
+
+    updateContactsPanel();
+    if(currentChat === groupId) updateHeaderState();
+    toast('Grup fotoğrafı güncellendi ✓');
+    input.value = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderGroupSettingsMemberList(group) {
+  const list = document.getElementById('groupSettingsMemberList');
+  list.innerHTML = '';
+  (group.members || []).forEach(u => {
+    const displayName = getDisplayName(u);
+    const avImg = avatarCache[u];
+    const isCreator = u === group.created_by;
+    const row = document.createElement('div');
+    row.className = 'group-member-row';
+    const avHtml = avImg
+      ? `<img src="${avImg}" style="width:40px;height:40px;border-radius:12px;object-fit:cover">`
+      : `<div class="pu-av ${col(u)}" style="width:40px;height:40px">${ini(displayName)}</div>`;
+    const kickHtml = (group.created_by === myUsername && u !== myUsername)
+      ? `<button class="kick-btn" onclick="kickMember('${u}')">Çıkar</button>` : '';
+    row.innerHTML = `${avHtml}<div style="flex:1"><div style="font-size:14px;font-weight:600;color:var(--text)">${esc(displayName)}</div><div style="font-size:12px;color:var(--muted)">${u}</div></div>${isCreator?'<span class="group-member-role">Yönetici</span>':''}${kickHtml}`;
+    list.appendChild(row);
+  });
+}
+
+async function saveGroupName() {
+  const name = document.getElementById('editGroupName').value.trim();
+  if(!name) { toast('Grup adı boş olamaz!'); return; }
+  const { error } = await db.from('groups').update({ name }).eq('id', currentGroupSettingsId);
+  if(error) { toast('Kaydedilemedi!'); return; }
+  const g = groupsList.find(g=>g.id===currentGroupSettingsId);
+  if(g) g.name = name;
+  updateContactsPanel();
+  if(currentChat === currentGroupSettingsId) updateHeaderState();
+  toast('Grup adı güncellendi ✓');
+}
+
+async function kickMember(username) {
+  if(!confirm(username + ' grubu çıkarmak istediğinizden emin misiniz?')) return;
+  const group = groupsList.find(g=>g.id===currentGroupSettingsId);
+  if(!group) return;
+  const newMembers = group.members.filter(u=>u!==username);
+  const { error } = await db.from('groups').update({ members: newMembers }).eq('id', currentGroupSettingsId);
+  if(error) { toast('İşlem başarısız!'); return; }
+  group.members = newMembers;
+  renderGroupSettingsMemberList(group);
+  updateContactsPanel();
+  toast(username + ' gruptan çıkarıldı.');
+}
+
+async function leaveOrDeleteGroup() {
+  const group = groupsList.find(g=>g.id===currentGroupSettingsId);
+  if(!group) return;
+  if(group.created_by === myUsername) {
+    if(!confirm('Grubu tamamen silmek istediğinizden emin misiniz?')) return;
+    const { error } = await db.from('groups').delete().eq('id', currentGroupSettingsId);
+    if(error) { toast('Silinemedi!'); return; }
+    groupsList = groupsList.filter(g=>g.id!==currentGroupSettingsId);
+    closeAllPanels();
+    if(currentChat === currentGroupSettingsId) closeChat();
+    updateContactsPanel();
+    toast('Grup silindi.');
+  } else {
+    if(!confirm('Gruptan ayrılmak istediğinizden emin misiniz?')) return;
+    const newMembers = group.members.filter(u=>u!==myUsername);
+    const { error } = await db.from('groups').update({ members: newMembers }).eq('id', currentGroupSettingsId);
+    if(error) { toast('İşlem başarısız!'); return; }
+    group.members = newMembers;
+    closeAllPanels();
+    if(currentChat === currentGroupSettingsId) closeChat();
+    updateContactsPanel();
+    toast('Gruptan ayrıldınız.');
+  }
+}
+
+// ── ADD MEMBER TO EXISTING GROUP ──
+function openAddMemberToGroup() {
+  const group = groupsList.find(g=>g.id===currentGroupSettingsId);
+  if(!group) return;
+  const list = document.getElementById('addMemberList');
+  list.innerHTML = '';
+  const contactsNotInGroup = Object.keys(myContacts).filter(u=>!group.members.includes(u));
+  if(!contactsNotInGroup.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:14px">Rehberinizde eklenebilecek başka kişi yok.</div>';
+  } else {
+    contactsNotInGroup.forEach(u => {
+      const displayName = getDisplayName(u);
+      const avImg = avatarCache[u];
+      const d = document.createElement('div');
+      d.className = 'pu';
+      d.onclick = () => addMemberToGroup(u);
+      const avHtml = avImg
+        ? `<img src="${avImg}" style="width:46px;height:46px;border-radius:14px;object-fit:cover">`
+        : `<div class="pu-av ${col(u)}">${ini(displayName)}</div>`;
+      d.innerHTML = `${avHtml}<div><div class="pu-name">${esc(displayName)}</div><div class="pu-sub">${u}</div></div><span style="margin-left:auto;font-size:20px;color:var(--primary)">+</span>`;
+      list.appendChild(d);
+    });
+  }
+  closeAllPanels();
+  document.getElementById('addMemberPanel').classList.add('open');
+  const ov = document.getElementById('overlay');
+  ov.style.display = 'block'; setTimeout(()=>ov.classList.add('open'),10);
+}
+
+async function addMemberToGroup(username) {
+  const group = groupsList.find(g=>g.id===currentGroupSettingsId);
+  if(!group) return;
+  if(group.members.includes(username)) { toast('Bu kişi zaten grupta!'); return; }
+  const newMembers = [...group.members, username];
+  const { error } = await db.from('groups').update({ members: newMembers }).eq('id', currentGroupSettingsId);
+  if(error) { toast('Eklenemedi!'); return; }
+  group.members = newMembers;
+  updateContactsPanel();
+  openGroupSettings(currentGroupSettingsId);
+  toast(getDisplayName(username) + ' gruba eklendi ✓');
 }
 
 // ── PANELS ──
