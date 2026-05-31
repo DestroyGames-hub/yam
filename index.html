@@ -632,7 +632,6 @@ let myAvatarUrl = null; // base64 or URL for own avatar
 let avatarCache = {}; // { username: url } for other users
 let groupAvatarCache = {}; // { groupId: url } for groups
 let currentGroupSettingsId = null; // group id being edited
-let storyViewsCache = {}; // { storyId: [username,...] }
 
 const colorMap={};
 const COLS=['av0','av1','av2','av3','av4','av5','av6','av7'];
@@ -1407,30 +1406,26 @@ function viewStories(stories,username){
   document.getElementById('storyViewer').classList.add('open');
   renderStoryViewer();
   startStoryTimer();
-  // Record view for each story (only if not our own)
+  // Sadece kendi durumumuz değilse görüntülemeyi kaydet
   stories.forEach(s => {
     if(s.username !== myUsername) {
-      recordStoryView(s.id, s.username);
+      recordStoryView(s);
     }
   });
 }
 
-async function recordStoryView(storyId, ownerUsername) {
-  // Store views in localStorage keyed by storyId
-  const key = 'yam-story-views-' + storyId;
-  try {
-    let views = JSON.parse(localStorage.getItem(key) || '[]');
-    if(!views.includes(myUsername)) {
-      views.push(myUsername);
-      localStorage.setItem(key, JSON.stringify(views));
-    }
-  } catch(e) {}
+async function recordStoryView(story) {
+  const viewers = story.viewers || [];
+  if(viewers.includes(myUsername)) return; // zaten kayıtlı
+  const newViewers = [...viewers, myUsername];
+  // DB'ye yaz
+  const { error } = await db.from('stories').update({ viewers: newViewers }).eq('id', story.id);
+  if(!error) story.viewers = newViewers; // lokal cache güncelle
 }
 
 function getStoryViews(storyId) {
-  try {
-    return JSON.parse(localStorage.getItem('yam-story-views-' + storyId) || '[]');
-  } catch(e) { return []; }
+  const story = currentStories.find(s => s.id === storyId);
+  return story?.viewers || [];
 }
 
 function storyTapLeft() {
@@ -1499,14 +1494,27 @@ function renderStoryViewer(){
   }
 }
 
-function openStoryViewers() {
+async function openStoryViewers() {
   const s = currentStories[storyIdx];
   if(!s || s.username !== myUsername) return;
-  const views = getStoryViews(s.id);
+
   const sheet = document.getElementById('storyViewersSheet');
   const list = document.getElementById('storyViewersList');
+  document.getElementById('storyViewersTitle').textContent = '👁 Yükleniyor...';
+  list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:14px">⏳</div>';
+  sheet.classList.add('open');
+
+  // DB'den taze veri çek
+  const { data } = await db.from('stories').select('viewers').eq('id', s.id).single();
+  const views = data?.viewers || [];
+  // Lokal cache güncelle
+  s.viewers = views;
+
   document.getElementById('storyViewersTitle').textContent = `👁 ${views.length} kişi gördü`;
+  // Görüntüleme sayısını butonda da güncelle
+  document.getElementById('storyViewersBtn').textContent = `👁 ${views.length} kişi gördü`;
   list.innerHTML = '';
+
   if(!views.length) {
     list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:14px">Henüz kimse görmedi</div>';
   } else {
@@ -1522,7 +1530,6 @@ function openStoryViewers() {
       list.appendChild(row);
     });
   }
-  sheet.classList.add('open');
 }
 
 function closeStoryViewers() {
