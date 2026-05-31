@@ -65,9 +65,9 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .auth-btn:active{transform:translateY(0)}
 .auth-btn.secondary{background:transparent;color:var(--primary);box-shadow:none;border:2px solid var(--primary-light);margin-bottom:0}
 .auth-btn.secondary:hover{background:var(--primary-light)}
-.remember-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:20px;text-align:left}
-.remember-row input{width:18px;height:18px;accent-color:var(--primary);cursor:pointer;margin-top: 1px;}
-.remember-row label{font-size:14px;color:var(--muted);cursor:pointer;line-height: 1.4;}
+.remember-row{display:flex;align-items:center;gap:8px;margin-bottom:20px;text-align:left}
+.remember-row input{width:18px;height:18px;accent-color:var(--primary);cursor:pointer}
+.remember-row label{font-size:14px;color:var(--muted);cursor:pointer}
 
 /* OTP INPUT */
 .otp-inputs{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
@@ -257,7 +257,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .story-media-wrap img, .story-media-wrap video{width:100%; height:100%; object-fit:contain; background:rgba(0,0,0,0.3);}
 .story-bg{position:absolute;inset:0;opacity:.25;background:var(--gradient);z-index:1}
 
-/* ADD STORY MODAL & AGREEMENT MODAL */
+/* ADD STORY MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:400;display:none;align-items:flex-end;justify-content:center}
 .modal-overlay.open{display:flex}
 .modal-card{background:var(--surface);border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;max-width:500px}
@@ -316,29 +316,43 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 </head>
 <body>
 
+<!-- KULLANICI SÖZLEŞMESİ MODAL -->
+<div id="termsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--surface,#fff);border-radius:20px;max-width:480px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 48px rgba(0,0,0,0.25)">
+    <div style="padding:20px 20px 14px;border-bottom:1px solid var(--border,#e5e7eb);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div style="font-size:16px;font-weight:700;color:var(--text,#1f2937)">📋 Kullanıcı Sözleşmesi</div>
+      <button onclick="document.getElementById('termsModal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted,#6b7280);line-height:1">✕</button>
+    </div>
+    <div style="overflow-y:auto;padding:18px 20px 20px;flex:1;font-size:13px;line-height:1.7;color:var(--text,#1f2937)">
+      <p style="margin-bottom:14px"><strong>Sorumluluk Reddi:</strong> Yam, kullanıcılar arasında uçtan uca veya sunucu bazlı iletilen içeriklerden (mesajlar, medya, grup sohbetleri) sorumlu tutulamaz. Uygulama yalnızca bir iletişim altyapısıdır; içeriklerin yasal sorumluluğu tamamen ilgili içeriği oluşturan ve paylaşan kullanıcıya aittir.</p>
+      <p style="margin-bottom:14px"><strong>Veri Paylaşımı:</strong> Yam platformunda kullanıcıların IP adresi veya donanımsal cihaz bilgileri sistem tarafından kaydedilmemektedir. Ancak yetkili mercilerden (Savcılık, Mahkeme vb.) usulüne uygun bir talep gelmesi durumunda; sistemimizde mevcut olan e-posta adresleri ve sohbet dökümleri dahil olmak üzere tüm veriler, yasal yükümlülüklerimiz gereği eksiksiz ve olduğu haliyle ilgili makamlarla paylaşılacaktır.</p>
+      <p style="margin-bottom:14px"><strong>İş Birliği ve Bildirim:</strong> Kullanıcı, uygulamayı yasadışı faaliyetler, dolandırıcılık veya suç teşkil eden herhangi bir eylem için kullanmayacağını taahhüt eder. Yam yönetimi, suç unsuru teşkil eden bir durumla karşılaşıldığında veya yetkili mercilerce talep edildiğinde elindeki tüm verileri (e-posta ve sohbet içerikleri) paylaşacağını; kullanıcının bu paylaşım nedeniyle herhangi bir gizlilik ihlali iddiasında bulunamayacağını peşinen kabul eder.</p>
+      <p><strong>Kullanıcı Beyanı:</strong> Kullanıcı, Yam'ı kullanarak gerçekleştirdiği her türlü eylemin hukuki sonucunun kendisine ait olduğunu, uygulamanın bu süreçte yalnızca bir veri aktarıcısı olduğunu ve yetkili mercilerle yapılacak her türlü veri paylaşımına rıza gösterdiğini kabul ve beyan eder.</p>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border,#e5e7eb);flex-shrink:0">
+      <button onclick="document.getElementById('termsModal').style.display='none'" style="width:100%;background:linear-gradient(135deg,#6366f1,#a855f7);border:none;border-radius:12px;padding:12px;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Anladım ✓</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN -->
 <div id="loginScreen" class="screen active">
   <div class="auth-card">
-    <div class="auth-logo" style="background: transparent; box-shadow: none; transform: none; width: 90px; height: 90px; padding: 0;">
-      <a href="https://ibb.co/vCtWLZV7" style="display: block; width: 100%; height: 100%;">
-        <img src="https://i.ibb.co/6cdSDgr3/20260530-210205-0000.png" alt="YAM Logo" border="0" style="width: 100%; height: 100%; object-fit: contain;">
-      </a>
+    <div class="auth-logo" style="background:none;box-shadow:none;transform:none;overflow:hidden;padding:0">
+      <img src="https://i.ibb.co/6cdSDgr3/20260530-210205-0000.png" alt="YAM" style="width:80px;height:80px;border-radius:24px;object-fit:cover;display:block">
     </div>
     <div class="auth-title">YAM'a Hoş Geldiniz</div>
     <div class="auth-sub">Sohbete katılmak için e-posta adresinizi girin.</div>
     <div class="auth-lbl">E-Posta</div>
     <input class="auth-inp" id="emailInput" type="email" placeholder="ornek@mail.com" autofocus>
-    <div class="remember-row" style="margin-bottom: 12px;">
+    <div class="remember-row">
       <input type="checkbox" id="rememberMe" checked>
       <label for="rememberMe">Beni hatırla</label>
     </div>
-    <div class="remember-row" style="margin-bottom: 24px;">
-      <input type="checkbox" id="agreementCheck">
-      <label for="agreementCheck" style="font-size: 13px;">
-        <span style="color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline;" onclick="event.preventDefault(); openAgreementModal()">Kullanıcı Sözleşmesi</span>'ni okudum ve kabul ediyorum.
-      </label>
-    </div>
     <button class="auth-btn" onclick="sendOTP()">Kod Gönder ✉️</button>
+    <div style="margin-top:12px;font-size:12px;color:var(--muted);text-align:center">
+      Devam ederek <span onclick="document.getElementById('termsModal').style.display='flex'" style="color:var(--primary);font-weight:600;cursor:pointer;text-decoration:underline">Kullanıcı Sözleşmesi</span>'ni kabul etmiş olursunuz.
+    </div>
   </div>
 </div>
 
@@ -617,20 +631,6 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   </div>
 </div>
 
-<!-- AGREEMENT MODAL -->
-<div class="modal-overlay" id="agreementModal" style="z-index: 9999;">
-  <div class="modal-card" style="max-height: 85vh; display: flex; flex-direction: column; padding-bottom: 24px;">
-    <div class="modal-title" style="margin-bottom: 20px;">Kullanıcı Sözleşmesi</div>
-    <div style="overflow-y: auto; text-align: left; font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 24px; padding-right: 10px;">
-      <p><strong>Sorumluluk Reddi:</strong> Yam, kullanıcılar arasında uçtan uca veya sunucu bazlı iletilen içeriklerden (mesajlar, medya, grup sohbetleri) sorumlu tutulamaz. Uygulama, sadece bir iletişim altyapısıdır; içeriklerin yasal sorumluluğu tamamen ilgili içeriği oluşturan ve paylaşan kullanıcıya aittir.</p><br>
-      <p><strong>Veri Paylaşımı:</strong> Yam platformunda kullanıcıların IP adresi veya donanımsal cihaz bilgileri sistem tarafından kaydedilmemektedir. Ancak, yasal mercilerden (Savcılık, Mahkeme vb.) usulüne uygun bir talep gelmesi durumunda; sistemimizde mevcut olan e-posta adresleri ve sohbet dökümleri dahil olmak üzere tüm veriler, yasal yükümlülüklerimiz gereği eksiksiz ve olduğu haliyle yetkili makamlarla paylaşılacaktır.</p><br>
-      <p><strong>İş Birliği ve Bildirim:</strong> Kullanıcı, uygulamayı yasa dışı faaliyetler, dolandırıcılık veya suç teşkil eden herhangi bir eylem için kullanmayacağını taahhüt eder. Yam yönetimi, suç unsuru teşkil eden bir durumla karşılaşıldığında veya yasal mercilerce talep edildiğinde, elindeki tüm verileri (e-posta ve sohbet içerikleri) paylaşacağını ve bu paylaşımdan ötürü kullanıcının herhangi bir gizlilik ihlali iddiasında bulunamayacağını peşinen kabul eder.</p><br>
-      <p><strong>Kullanıcı Beyanı:</strong> Kullanıcı, Yam'ı kullanarak gerçekleştirdiği her türlü eylemin hukuki sonucunun kendisine ait olduğunu, uygulamanın bu süreçte sadece bir veri aktarıcısı olduğunu ve yasal mercilerle yapılacak her türlü veri paylaşımına rıza gösterdiğini kabul ve beyan eder.</p>
-    </div>
-    <button class="auth-btn" style="margin-bottom: 0;" onclick="closeAgreementModal()">Anladım ve Kapat</button>
-  </div>
-</div>
-
 <script>
 // Tema kontrolü
 if(localStorage.getItem('yam-theme') === 'dark') {
@@ -682,14 +682,6 @@ function showScreen(id){
   if(el)el.classList.add('active');
 }
 
-// ── AGREEMENT MODAL FUNCS ──
-function openAgreementModal() {
-  document.getElementById('agreementModal').classList.add('open');
-}
-function closeAgreementModal() {
-  document.getElementById('agreementModal').classList.remove('open');
-}
-
 // ── AUTH: CHECK SESSION ──
 window.addEventListener('DOMContentLoaded',async()=>{
   setupOTPInputs();
@@ -710,10 +702,6 @@ window.addEventListener('DOMContentLoaded',async()=>{
 async function sendOTP(){
   const email=document.getElementById('emailInput').value.trim();
   if(!email||!email.includes('@')){toast('Lütfen geçerli bir e-posta adresi girin.');return;}
-  
-  const agreementChecked=document.getElementById('agreementCheck').checked;
-  if(!agreementChecked){toast('Lütfen Kullanıcı Sözleşmesi\'ni kabul edin.');return;}
-
   otpEmail=email;
   const btn=document.querySelector('#loginScreen .auth-btn');
   btn.textContent='Gönderiliyor...';btn.disabled=true;
@@ -1546,7 +1534,7 @@ async function openStoryViewers() {
   // Lokal cache güncelle
   s.viewers = views;
 
-  document.getElementById('storyViewersTitle').textContent = `👁 ${views.length} kişi gördü`;
+  document.getElementById('storyViewersTitle').textContent = `👁 Görüntüleyenler (${views.length})`;
   // Görüntüleme sayısını butonda da güncelle
   document.getElementById('storyViewersBtn').textContent = `👁 ${views.length} kişi gördü`;
   list.innerHTML = '';
@@ -1554,6 +1542,9 @@ async function openStoryViewers() {
   if(!views.length) {
     list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:14px">Henüz kimse görmedi</div>';
   } else {
+    // Görüntüleyenlerin avatarlarını DB'den taze çek
+    const avFetch = await db.from('profiles').select('username, avatar_url').in('username', views);
+    ((avFetch.data) || []).forEach(p => { if(p.avatar_url) avatarCache[p.username] = p.avatar_url; });
     views.forEach(u => {
       const displayName = getDisplayName(u);
       const avImg = avatarCache[u];
@@ -1867,5 +1858,4 @@ if (document.readyState === 'loading') {
 
 </body>
 </html>
-
 
