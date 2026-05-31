@@ -65,9 +65,9 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .auth-btn:active{transform:translateY(0)}
 .auth-btn.secondary{background:transparent;color:var(--primary);box-shadow:none;border:2px solid var(--primary-light);margin-bottom:0}
 .auth-btn.secondary:hover{background:var(--primary-light)}
-.remember-row{display:flex;align-items:center;gap:8px;margin-bottom:20px;text-align:left}
-.remember-row input{width:18px;height:18px;accent-color:var(--primary);cursor:pointer}
-.remember-row label{font-size:14px;color:var(--muted);cursor:pointer}
+.remember-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:20px;text-align:left}
+.remember-row input{width:18px;height:18px;accent-color:var(--primary);cursor:pointer;margin-top: 1px;}
+.remember-row label{font-size:14px;color:var(--muted);cursor:pointer;line-height: 1.4;}
 
 /* OTP INPUT */
 .otp-inputs{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
@@ -257,7 +257,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .story-media-wrap img, .story-media-wrap video{width:100%; height:100%; object-fit:contain; background:rgba(0,0,0,0.3);}
 .story-bg{position:absolute;inset:0;opacity:.25;background:var(--gradient);z-index:1}
 
-/* ADD STORY MODAL */
+/* ADD STORY MODAL & AGREEMENT MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:400;display:none;align-items:flex-end;justify-content:center}
 .modal-overlay.open{display:flex}
 .modal-card{background:var(--surface);border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;max-width:500px}
@@ -319,14 +319,24 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 <!-- LOGIN -->
 <div id="loginScreen" class="screen active">
   <div class="auth-card">
-    <div class="auth-logo">🍠</div>
+    <div class="auth-logo" style="background: transparent; box-shadow: none; transform: none; width: 90px; height: 90px; padding: 0;">
+      <a href="https://ibb.co/vCtWLZV7" style="display: block; width: 100%; height: 100%;">
+        <img src="https://i.ibb.co/6cdSDgr3/20260530-210205-0000.png" alt="YAM Logo" border="0" style="width: 100%; height: 100%; object-fit: contain;">
+      </a>
+    </div>
     <div class="auth-title">YAM'a Hoş Geldiniz</div>
     <div class="auth-sub">Sohbete katılmak için e-posta adresinizi girin.</div>
     <div class="auth-lbl">E-Posta</div>
     <input class="auth-inp" id="emailInput" type="email" placeholder="ornek@mail.com" autofocus>
-    <div class="remember-row">
+    <div class="remember-row" style="margin-bottom: 12px;">
       <input type="checkbox" id="rememberMe" checked>
       <label for="rememberMe">Beni hatırla</label>
+    </div>
+    <div class="remember-row" style="margin-bottom: 24px;">
+      <input type="checkbox" id="agreementCheck">
+      <label for="agreementCheck" style="font-size: 13px;">
+        <span style="color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline;" onclick="event.preventDefault(); openAgreementModal()">Kullanıcı Sözleşmesi</span>'ni okudum ve kabul ediyorum.
+      </label>
     </div>
     <button class="auth-btn" onclick="sendOTP()">Kod Gönder ✉️</button>
   </div>
@@ -607,6 +617,20 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   </div>
 </div>
 
+<!-- AGREEMENT MODAL -->
+<div class="modal-overlay" id="agreementModal" style="z-index: 9999;">
+  <div class="modal-card" style="max-height: 85vh; display: flex; flex-direction: column; padding-bottom: 24px;">
+    <div class="modal-title" style="margin-bottom: 20px;">Kullanıcı Sözleşmesi</div>
+    <div style="overflow-y: auto; text-align: left; font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 24px; padding-right: 10px;">
+      <p><strong>Sorumluluk Reddi:</strong> Yam, kullanıcılar arasında uçtan uca veya sunucu bazlı iletilen içeriklerden (mesajlar, medya, grup sohbetleri) sorumlu tutulamaz. Uygulama, sadece bir iletişim altyapısıdır; içeriklerin yasal sorumluluğu tamamen ilgili içeriği oluşturan ve paylaşan kullanıcıya aittir.</p><br>
+      <p><strong>Veri Paylaşımı:</strong> Yam platformunda kullanıcıların IP adresi veya donanımsal cihaz bilgileri sistem tarafından kaydedilmemektedir. Ancak, yasal mercilerden (Savcılık, Mahkeme vb.) usulüne uygun bir talep gelmesi durumunda; sistemimizde mevcut olan e-posta adresleri ve sohbet dökümleri dahil olmak üzere tüm veriler, yasal yükümlülüklerimiz gereği eksiksiz ve olduğu haliyle yetkili makamlarla paylaşılacaktır.</p><br>
+      <p><strong>İş Birliği ve Bildirim:</strong> Kullanıcı, uygulamayı yasa dışı faaliyetler, dolandırıcılık veya suç teşkil eden herhangi bir eylem için kullanmayacağını taahhüt eder. Yam yönetimi, suç unsuru teşkil eden bir durumla karşılaşıldığında veya yasal mercilerce talep edildiğinde, elindeki tüm verileri (e-posta ve sohbet içerikleri) paylaşacağını ve bu paylaşımdan ötürü kullanıcının herhangi bir gizlilik ihlali iddiasında bulunamayacağını peşinen kabul eder.</p><br>
+      <p><strong>Kullanıcı Beyanı:</strong> Kullanıcı, Yam'ı kullanarak gerçekleştirdiği her türlü eylemin hukuki sonucunun kendisine ait olduğunu, uygulamanın bu süreçte sadece bir veri aktarıcısı olduğunu ve yasal mercilerle yapılacak her türlü veri paylaşımına rıza gösterdiğini kabul ve beyan eder.</p>
+    </div>
+    <button class="auth-btn" style="margin-bottom: 0;" onclick="closeAgreementModal()">Anladım ve Kapat</button>
+  </div>
+</div>
+
 <script>
 // Tema kontrolü
 if(localStorage.getItem('yam-theme') === 'dark') {
@@ -658,6 +682,14 @@ function showScreen(id){
   if(el)el.classList.add('active');
 }
 
+// ── AGREEMENT MODAL FUNCS ──
+function openAgreementModal() {
+  document.getElementById('agreementModal').classList.add('open');
+}
+function closeAgreementModal() {
+  document.getElementById('agreementModal').classList.remove('open');
+}
+
 // ── AUTH: CHECK SESSION ──
 window.addEventListener('DOMContentLoaded',async()=>{
   setupOTPInputs();
@@ -678,6 +710,10 @@ window.addEventListener('DOMContentLoaded',async()=>{
 async function sendOTP(){
   const email=document.getElementById('emailInput').value.trim();
   if(!email||!email.includes('@')){toast('Lütfen geçerli bir e-posta adresi girin.');return;}
+  
+  const agreementChecked=document.getElementById('agreementCheck').checked;
+  if(!agreementChecked){toast('Lütfen Kullanıcı Sözleşmesi\'ni kabul edin.');return;}
+
   otpEmail=email;
   const btn=document.querySelector('#loginScreen .auth-btn');
   btn.textContent='Gönderiliyor...';btn.disabled=true;
@@ -1831,4 +1867,5 @@ if (document.readyState === 'loading') {
 
 </body>
 </html>
+
 
