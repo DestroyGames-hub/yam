@@ -136,7 +136,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .story-name{font-size:10px;color:var(--muted);font-weight:600;max-width:60px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* MESSAGES */
-#chatView{flex:1; display:none; flex-direction:column; overflow:hidden;}
+#chatView{flex:1; display:none; flex-direction:column; overflow:hidden; position:relative;}
 #messages{flex:1; overflow-y:auto; padding:20px 10px 8px; display:flex; flex-direction:column; gap:4px; position:relative; z-index:1}
 #messages::-webkit-scrollbar{width:4px}
 #messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
@@ -314,36 +314,35 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .kick-btn:hover{background:rgba(239,68,68,.1)}
 
 /* ── ENTEGRE YENİ STİLLER ── */
-/* Emoji Drawer (WhatsApp Stili) */
-.emoji-drawer {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-  border-radius: 18px;
-  width: 320px;
-  max-height: 260px;
+
+/* Sanal Klavye ve Emoji Çekmecesi (Klavye Yerini Alan Alan) */
+#virtualKeyboardArea {
   display: none;
   flex-direction: column;
-  z-index: 200;
+  height: 260px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  z-index: 100;
+  flex-shrink: 0;
+  overflow-y: auto;
   animation: bpop 0.2s cubic-bezier(.16,1,.3,1);
 }
-.emoji-drawer.open { display: flex; }
 .emoji-drawer-header {
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   font-size: 13px;
   font-weight: 700;
   color: var(--muted);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 2;
 }
 .emoji-drawer-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 8px;
   padding: 12px;
-  overflow-y: auto;
 }
 .emoji-drawer-item {
   font-size: 24px;
@@ -353,6 +352,52 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   transition: transform 0.1s;
 }
 .emoji-drawer-item:hover { transform: scale(1.25); }
+
+/* Özel Klavye Tasarımları */
+.custom-kb-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  height: 100%;
+  box-sizing: border-box;
+}
+.custom-kb-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+.custom-kb-key {
+  flex: 1;
+  height: 48px;
+  border-radius: 8px;
+  border: none;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: transform 0.1s;
+}
+.custom-kb-key:active { transform: scale(0.95); }
+.custom-kb-key.special { flex: 1.5; font-size: 14px; }
+.custom-kb-key.space { flex: 4; }
+
+/* Temalar */
+[data-kb="dark"] .custom-kb-grid { background: #111827; }
+[data-kb="dark"] .custom-kb-key { background: #374151; color: #fff; }
+
+[data-kb="indigo"] .custom-kb-grid { background: #e0e7ff; }
+[data-kb="indigo"] .custom-kb-key { background: #6366f1; color: #fff; }
+
+[data-kb="dev"] .custom-kb-grid { background: #0f172a; }
+[data-kb="dev"] .custom-kb-key { background: #1e293b; color: #10b981; font-family: monospace; border: 1px solid #334155; }
+
+[data-kb="large"] .custom-kb-grid { background: #fff7ed; }
+[data-kb="large"] .custom-kb-key { background: #f97316; color: #fff; font-size: 24px; font-weight: 800; border-radius: 12px; }
 
 /* Ses Kaydı & Sesli Mesaj Elemanları */
 .voice-rec-btn {
@@ -462,11 +507,15 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   background: #000;
   z-index: 1;
   display: none;
+  /* Grup Aramaları İçin Grid Düzeni */
+  grid-template-columns: repeat(auto-fit, minmax(50%, 1fr));
+  grid-auto-rows: 1fr;
 }
 .remote-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border: 1px solid #333;
 }
 .local-video {
   position: absolute;
@@ -663,6 +712,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
       <button class="hbtn" onclick="openGroupCreate()" title="Grup Oluştur">👥</button>
       <button class="hbtn" onclick="openSettings()" title="Ayarlar">⚙️</button>
     </div>
+    <!-- Aramalar hem Gruplar hem de DM için açık olacak -->
     <div class="header-actions" id="actionsChat" style="display:none">
       <button class="hbtn" id="voiceCallBtn" onclick="initiateCall('voice')" title="Sesli Ara" style="font-size:14px;">📞</button>
       <button class="hbtn" id="videoCallBtn" onclick="initiateCall('video')" title="Görüntülü Ara" style="font-size:14px;">📹</button>
@@ -687,12 +737,6 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
       </div>
     <div id="typingBar"></div>
     <div class="input-bar" id="inputBar">
-      
-      <div class="emoji-drawer" id="emojiDrawer">
-        <div class="emoji-drawer-header">Sık Kullanılan Emojiler</div>
-        <div class="emoji-drawer-grid" id="emojiDrawerGrid"></div>
-      </div>
-
       <div class="input-wrap">
         <span class="emoji-btn" onclick="toggleEmojiDrawer()">✨</span>
         <textarea id="msgInput" rows="1" placeholder="Bir mesaj yazın..."></textarea>
@@ -700,6 +744,12 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
       </div>
       <button class="send-btn" onclick="sendMessage()">➤</button>
     </div>
+
+    <!-- SANAL KLAVYE VE EMOJİ ALANI (Dahili) -->
+    <div id="virtualKeyboardArea">
+      <!-- İçerik Dinamik Olarak JS ile Doldurulacak -->
+    </div>
+
   </div>
 </div>
 
@@ -795,6 +845,18 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
     <div class="setting-row">
       <span>Karanlık Tema 🌙</span>
       <input type="checkbox" class="toggle-switch" id="darkToggle" onchange="toggleDark()">
+    </div>
+    <!-- ÖZEL KLAVYE AYARI -->
+    <div class="profile-section" style="padding-top:16px;">
+      <label>Klavye Tipi Seçimi</label>
+      <select class="profile-inp" id="keyboardSelect" onchange="changeKeyboardSetting(this.value)">
+        <option value="standard">📱 Standart Telefon Klavyesi</option>
+        <option value="dark">🌙 Koyu Tema (Özel Klavye)</option>
+        <option value="indigo">🌊 İndigo Tema (Özel Klavye)</option>
+        <option value="dev">💻 Yazılımcı Stili (Özel Klavye)</option>
+        <option value="large">🔠 Büyük Harf (Özel Klavye)</option>
+      </select>
+      <div style="font-size:11px; color:var(--muted); margin-top:6px;">Özel klavye seçildiğinde standart klavyeniz açılmaz.</div>
     </div>
   </div>
 </div>
@@ -905,7 +967,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 
 <div id="callWindow">
   <div class="call-video-container" id="callVideoContainer">
-    <video class="remote-video" id="remoteVideo" autoplay playsinline></video>
+    <!-- Uzak bağlantı videoları buraya eklenecek -->
     <video class="local-video" id="localVideo" autoplay playsinline muted></video>
   </div>
   <div style="z-index:10; display:flex; flex-direction:column; align-items:center;">
@@ -949,28 +1011,31 @@ let currentStories=[], storyIdx=0, storyTimer=null;
 let selectedGroupMembers=new Set();
 let otpEmail='';
 let storyMediaData=null, storyMediaType=null;
-let myContacts = {}; // { username: { email: "...", customName: "..." } }
-let myAvatarUrl = null; // base64 or URL for own avatar
-let avatarCache = {}; // { username: url } for other users
-let groupAvatarCache = {}; // { groupId: url } for groups
-let currentGroupSettingsId = null; // group id being edited
+let myContacts = {}; 
+let myAvatarUrl = null; 
+let avatarCache = {}; 
+let groupAvatarCache = {}; 
+let currentGroupSettingsId = null; 
 
 const colorMap={};
 const COLS=['av0','av1','av2','av3','av4','av5','av6','av7'];
 const STORY_EMOJIS=['✨','🔥','❤️','😂','🎉','💭','🌙','⚡','🎵','🍠','💫','🌈'];
 
 // ENTEGRE STATE DEĞİŞKENLERİ
-let emailCache = {}; // username -> email (Bilinmeyen kişilerin maillerini göstermek için)
-let blockedUsersList = new Set(); // Engellenen kullanıcılar listesi
-let voiceRecorder = null, voiceAudioChunks = []; // Ses kaydı için
-let currentActiveMediaTab = 'media'; // dm detay sekmesi
-let currentDelMsgId = null; // silinecek mesajın id'si
+let emailCache = {}; 
+let blockedUsersList = new Set(); 
+let voiceRecorder = null, voiceAudioChunks = []; 
+let currentActiveMediaTab = 'media'; 
+let currentDelMsgId = null; 
 
-// WebRTC State
+// KLAVYE STATE DEĞİŞKENLERİ
+let currentKeyboardTheme = localStorage.getItem('yam-kbd') || 'standard';
+
+// WEBRTC STATE (Group & DM)
 let localStream = null;
-let peerConnection = null;
+let peerConnections = {}; // targetUsername -> RTCPeerConnection (Çoklu Bağlantı İçin)
 let callSignalChannel = null;
-let activeCallData = null; // { from, to, type, rtcSessionId }
+let activeCallData = null; // { from, type, rtcSessionId, groupId, targets:[] }
 const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 function col(name){if(!colorMap[name]){let h=0;for(let c of String(name))h=(h*31+c.charCodeAt(0))%8;colorMap[name]=COLS[h];}return colorMap[name]}
@@ -979,12 +1044,10 @@ function tstr(ts){const d=new Date(ts);return d.getHours().toString().padStart(2
 function timeAgo(ts){const s=Math.floor((Date.now()-new Date(ts))/1000);if(s<60)return 'Az önce';if(s<3600)return Math.floor(s/60)+'dk';return Math.floor(s/3600)+'sa';}
 function esc(t){return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}
 
-// Helpers for Custom Names
 function getDisplayName(username) {
   if (!username) return '';
   if (username === myUsername) return 'Sen';
   if (myContacts && myContacts[username]) return myContacts[username].customName;
-  // Bilinmeyen birisi mesaj atarsa adı değil maili yazsın
   if (emailCache[username]) return emailCache[username];
   return username;
 }
@@ -1000,7 +1063,10 @@ function showScreen(id){
 window.addEventListener('DOMContentLoaded',async()=>{
   setupOTPInputs();
   setupEmojiGrid();
-  setupDahiliEmojiPanel();
+  
+  // Klavye Seçimi Başlat
+  document.getElementById('keyboardSelect').value = currentKeyboardTheme;
+
   document.getElementById('darkToggle').checked = (localStorage.getItem('yam-theme') === 'dark');
 
   const {data:{session}}=await db.auth.getSession();
@@ -1065,7 +1131,6 @@ async function verifyOTP(){
   await loadProfile();
 }
 
-// ── PROFILE & CONTACTS INIT ──
 function loadSavedContacts() {
   try {
     myContacts = JSON.parse(localStorage.getItem('yam-contacts-v3-' + myUsername)) || {};
@@ -1155,7 +1220,7 @@ function updateHeaderState() {
       dmSettingsBtn.style.display = 'none';
     } else {
       groupSettingsBtn.style.display = 'none';
-      dmSettingsBtn.style.display = 'flex'; // DM sohbetinde gruptaki gibi 3 nokta (⚙️) butonu
+      dmSettingsBtn.style.display = 'flex';
     }
     
     const displayName = currentChatType === 'group' ? '# ' + currentChat : getDisplayName(currentChat);
@@ -1194,6 +1259,7 @@ function switchChat(target, type){
   document.getElementById('chatView').style.display = 'flex';
   updateHeaderState();
   closeAllPanels();
+  closeVirtualKeyboard(); // Sohbet değiştirildiğinde klavye kapansın
   loadMessages();
 }
 
@@ -1202,8 +1268,7 @@ function closeChat() {
   currentChatType = null;
   document.getElementById('mainView').style.display = 'flex';
   document.getElementById('chatView').style.display = 'none';
-  // Emoji panelini kapat
-  document.getElementById('emojiDrawer').classList.remove('open');
+  closeVirtualKeyboard();
   updateHeaderState();
   updateContactsPanel();
 }
@@ -1222,7 +1287,7 @@ async function startApp(){
   updateHeaderState();
   initChat();
   loadStories();
-  initCallSignaling(); // Arama dinleyicisini başlat
+  initCallSignaling(); 
 }
 
 function requestNotificationPermission(){
@@ -1269,7 +1334,6 @@ function fillProfilePanel(){
   document.getElementById('editBio').value=myProfile?.bio||'';
 }
 
-// ── AVATAR UPLOAD (DB) ──
 function handleAvatarSelect(input) {
   const file = input.files[0];
   if(!file) return;
@@ -1311,7 +1375,6 @@ async function getStoriesData() {
   return _lastStoriesData;
 }
 
-// ── SETTINGS ──
 function openSettings() {
   openPanel('settingsPanel');
 }
@@ -1323,7 +1386,137 @@ function toggleDark() {
   localStorage.setItem('yam-theme', isDark ? 'dark' : 'light');
 }
 
-// ── ADD CONTACT ──
+// ── CUSTOM KEYBOARD AYARLARI ──
+function changeKeyboardSetting(val) {
+  currentKeyboardTheme = val;
+  localStorage.setItem('yam-kbd', val);
+  
+  const input = document.getElementById('msgInput');
+  if(currentKeyboardTheme !== 'standard') {
+    input.readOnly = true;
+  } else {
+    input.readOnly = false;
+  }
+}
+
+// ── SANAL KLAVYE VE EMOJİ ÇEKMECESİ LOJİKLERİ ──
+function closeVirtualKeyboard() {
+  const vka = document.getElementById('virtualKeyboardArea');
+  vka.style.display = 'none';
+  if(currentKeyboardTheme === 'standard') {
+    document.getElementById('msgInput').readOnly = false;
+  }
+}
+
+function toggleEmojiDrawer() {
+  const vka = document.getElementById('virtualKeyboardArea');
+  const input = document.getElementById('msgInput');
+  
+  if (vka.style.display === 'flex' && vka.dataset.mode === 'emoji') {
+    // Emoji kapatılıyor
+    vka.style.display = 'none';
+    if(currentKeyboardTheme === 'standard') {
+      input.readOnly = false;
+      input.focus();
+    } else {
+      input.readOnly = true;
+    }
+  } else {
+    // Emoji açılıyor
+    vka.style.display = 'flex';
+    vka.dataset.mode = 'emoji';
+    input.readOnly = true;
+    renderEmojiKeyboard();
+  }
+}
+
+function renderEmojiKeyboard() {
+  const vka = document.getElementById('virtualKeyboardArea');
+  const ems = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃','😺','😸','😻','😼','😽','🙀','😿','😾','👋','🤚','🖐️','✋','🖖','👌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟'];
+  
+  vka.innerHTML = `
+    <div class="emoji-drawer-header">Sık Kullanılan Emojiler</div>
+    <div class="emoji-drawer-grid">
+      ${ems.map(em => `<div class="emoji-drawer-item" onclick="insertChar('${em}')">${em}</div>`).join('')}
+    </div>
+  `;
+}
+
+function renderCustomKeyboard() {
+  const vka = document.getElementById('virtualKeyboardArea');
+  vka.innerHTML = '';
+  
+  const kbdWrapper = document.createElement('div');
+  kbdWrapper.className = 'custom-kb-grid';
+  kbdWrapper.setAttribute('data-kb', currentKeyboardTheme);
+
+  const row1 = ['Q','W','E','R','T','Y','U','I','O','P','Ğ','Ü'];
+  const row2 = ['A','S','D','F','G','H','J','K','L','Ş','İ'];
+  const row3 = ['Z','X','C','V','B','N','M','Ö','Ç'];
+  
+  const createRow = (keys) => {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'custom-kb-row';
+    keys.forEach(k => {
+      const btn = document.createElement('button');
+      btn.className = 'custom-kb-key';
+      btn.textContent = k;
+      // Normal mod için küçük, shift vs yapılabilir, basitlik adına direkt ekliyoruz.
+      const printChar = currentKeyboardTheme === 'large' ? k : k.toLowerCase();
+      btn.onclick = () => insertChar(printChar);
+      rowDiv.appendChild(btn);
+    });
+    return rowDiv;
+  };
+
+  kbdWrapper.appendChild(createRow(row1));
+  kbdWrapper.appendChild(createRow(row2));
+  kbdWrapper.appendChild(createRow(row3));
+
+  // Son Satır: Boşluk, Silme, Gönder
+  const row4 = document.createElement('div');
+  row4.className = 'custom-kb-row';
+  
+  const backBtn = document.createElement('button');
+  backBtn.className = 'custom-kb-key special';
+  backBtn.innerHTML = '⌫';
+  backBtn.onclick = () => {
+    const inp = document.getElementById('msgInput');
+    inp.value = inp.value.slice(0, -1);
+  };
+  
+  const spaceBtn = document.createElement('button');
+  spaceBtn.className = 'custom-kb-key space';
+  spaceBtn.innerHTML = 'Boşluk';
+  spaceBtn.onclick = () => insertChar(' ');
+
+  const sendKbdBtn = document.createElement('button');
+  sendKbdBtn.className = 'custom-kb-key special';
+  sendKbdBtn.innerHTML = 'Gönder';
+  sendKbdBtn.style.background = 'var(--primary)';
+  sendKbdBtn.style.color = '#fff';
+  sendKbdBtn.onclick = () => sendMessage();
+
+  row4.appendChild(backBtn);
+  row4.appendChild(spaceBtn);
+  row4.appendChild(sendKbdBtn);
+  
+  kbdWrapper.appendChild(row4);
+  vka.appendChild(kbdWrapper);
+}
+
+function insertChar(char) {
+  const inp = document.getElementById('msgInput');
+  inp.value += char;
+  inp.style.height = 'auto';
+  inp.style.height = Math.min(inp.scrollHeight, 110) + 'px';
+  // Typing sinyalini tetikle
+  if(!isTyping){isTyping=true;broadcastTyping(true);}
+  clearTimeout(typingTimeout);
+  typingTimeout=setTimeout(()=>{isTyping=false;broadcastTyping(false);},2000);
+}
+
+
 function openAddContact() {
   document.getElementById('newContactEmail').value = '';
   document.getElementById('newContactName').value = '';
@@ -1397,7 +1590,6 @@ async function loadMessages(){
   if(error){toast('Mesajlar yüklenemedi.');return;}
   let all=(data||[]).reverse();
 
-  // Benden silinmiş mesaj ID'lerini localStorage'dan çek
   const deletedMsgIds = JSON.parse(localStorage.getItem('yam-deleted-msgs-' + myUsername)) || [];
 
   all.forEach(m=>{
@@ -1410,7 +1602,7 @@ async function loadMessages(){
   updateContactsPanel(); 
 
   const filtered=all.filter(m=>{
-    if (deletedMsgIds.includes(m.id)) return false; // "Benden Sil" durumundaki mesajları süzgeçle
+    if (deletedMsgIds.includes(m.id)) return false; 
     
     const p=parseMessage(m);
     if(currentChatType==='dm')return p.isDM&&((m.username===myUsername&&p.recipient===currentChat)||(m.username===currentChat&&p.recipient===myUsername));
@@ -1434,10 +1626,8 @@ function subscribeMessages(){
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},async p=>{
       const m=p.new,parsed=parseMessage(m);
       
-      // Engellenen birinden gelen mesajı kabul etme
       if(blockedUsersList.has(m.username)) return;
 
-      // Bilinmeyen biriyse ve elimizde emaili yoksa taze profil çekelim
       if(parsed.isDM && m.username !== myUsername && !emailCache[m.username]) {
         const {data: prof} = await db.from('profiles').select('email').eq('username', m.username).single();
         if(prof?.email) {
@@ -1504,7 +1694,6 @@ function broadcastTyping(active){
 async function sendMessage(customText = null){
   if(!currentChat) return; 
   
-  // Engelli kontrolü
   if(currentChatType === 'dm' && blockedUsersList.has(currentChat)) {
     toast('Bu kullanıcıyı engellediniz. Mesaj göndermek için engeli kaldırın.');
     return;
@@ -1527,14 +1716,12 @@ async function sendMessage(customText = null){
   if(error)toast('Gönderilemedi: '+error.message);
 }
 
-// Mesaj Silme Tetikleyici
 function deleteMsg(id){
   currentDelMsgId = id;
   const modal = document.getElementById('msgDelModal');
   const row = document.getElementById('msg-'+id);
   const everyoneBtn = document.getElementById('msgDelEveryoneBtn');
   
-  // Sadece kendi mesajımızı herkesten silebiliriz
   if(row && row.classList.contains('mine')) {
     everyoneBtn.style.display = 'block';
   } else {
@@ -1559,7 +1746,6 @@ async function confirmDeleteMessage(mode) {
     const{error}=await db.from('messages').delete().eq('id',id);
     if(error){if(row)row.style.opacity='1';toast('Silinemedi!');}
   } else if(mode === 'me') {
-    // Mesajı Benden Sil
     let deleted = [];
     try { deleted = JSON.parse(localStorage.getItem('yam-deleted-msgs-' + myUsername)) || []; } catch(e){}
     deleted.push(id);
@@ -1574,6 +1760,21 @@ async function confirmDeleteMessage(mode) {
 
 function setupInput(){
   const input=document.getElementById('msgInput');
+  
+  // Custom Keyboard tetikleyici
+  input.addEventListener('focus', e => {
+    const vka = document.getElementById('virtualKeyboardArea');
+    if(currentKeyboardTheme !== 'standard') {
+      e.target.readOnly = true;
+      vka.style.display = 'flex';
+      vka.dataset.mode = 'keyboard';
+      renderCustomKeyboard();
+    } else {
+      e.target.readOnly = false;
+      vka.style.display = 'none';
+    }
+  });
+
   input.addEventListener('input',()=>{
     input.style.height='auto';
     input.style.height=Math.min(input.scrollHeight,110)+'px';
@@ -1584,7 +1785,6 @@ function setupInput(){
   input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});
 }
 
-// Sesli Mesaj Çalıcı Oynatma/Durdurma Lojikleri
 function playVoiceMessage(btn, audioSrc) {
   let audio = btn._audioInstance;
   const fill = btn.parentElement.querySelector('.voice-progress-fill');
@@ -1617,10 +1817,9 @@ function makeRow(m,cleanText){
   const row=document.createElement('div');
   row.className='mrow'+(mine?' mine':'');
   row.id='msg-'+m.id;
-  const showDel=true; // Mesaj herkesten veya benden silinebildiği için her koşulda ✕ görünür.
+  const showDel=true; 
   const displayName = getDisplayName(m.username);
   
-  // Sesli mesaj kontrolü
   let finalBodyHtml = '';
   if(cleanText && cleanText.startsWith('[AUDIO]') && cleanText.endsWith('[/AUDIO]')) {
     const audioDataUrl = cleanText.substring(7, cleanText.length - 8);
@@ -1657,7 +1856,6 @@ function updateContactsPanel(){
 
   let hasItems = false;
 
-  // 1. Gruplar
   if(groupsList.length > 0){
     const groupItems = groupsList.filter(g => g.members.includes(myUsername));
     if(groupItems.length > 0) {
@@ -1666,7 +1864,6 @@ function updateContactsPanel(){
         hasItems = true;
         const d=document.createElement('div');d.className='pu';
         
-        // Yeni yönetici kontrolü (admins array kontrolü)
         const isAdmin = g.created_by === myUsername || (g.admins && g.admins.includes(myUsername));
         
         const gAvImg = groupAvatarCache[g.id];
@@ -1680,7 +1877,6 @@ function updateContactsPanel(){
     }
   }
 
-  // 2. Rehberdeki Kişiler (Kayıtlı)
   const savedKeys = Object.keys(myContacts);
   if(savedKeys.length > 0) {
     const sl=document.createElement('div');sl.className='sec-label';sl.textContent='Kişiler';pl.appendChild(sl);
@@ -1697,7 +1893,6 @@ function updateContactsPanel(){
     });
   }
 
-  // 3. Bilinmeyen Numaralar (Rehberde olmayan ama mesajlaşılan kişiler)
   const unknownDMs=[...dmHistory].filter(u=>u!==myUsername && !myContacts[u]);
   if(unknownDMs.length > 0){
     const sl=document.createElement('div');sl.className='sec-label';sl.textContent='Diğer Sohbetler (Bilinmeyen)';pl.appendChild(sl);
@@ -1718,7 +1913,6 @@ function updateContactsPanel(){
   }
 }
 
-// ── GROUPS ──
 async function loadGroups(){
   const{data}=await db.from('groups').select('*').order('created_at',{ascending:false});
   groupsList=data||[];
@@ -1779,7 +1973,6 @@ function toggleGroupMember(username){
   renderGroupUserList();
 }
 
-// ── STORIES ──
 async function loadStories(){
   const{data}=await db.from('stories').select('*').order('created_at',{ascending:false});
   _lastStoriesData = data || [];
@@ -1827,28 +2020,6 @@ function setupEmojiGrid(){
     btn.textContent=em;btn.onclick=()=>{document.querySelectorAll('.emoji-opt').forEach(e=>e.classList.remove('sel'));btn.classList.add('sel');};
     grid.appendChild(btn);
   });
-}
-
-// Dahili Emoji Panel (WhatsApp Stili Klavye Entegrasyonu)
-function setupDahiliEmojiPanel() {
-  const grid = document.getElementById('emojiDrawerGrid');
-  const ems = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','??','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃','😺','😸','😻','😼','😽','🙀','😿','😾','👋','🤚','🖐️','✋','🖖','👌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🧠','🦷','🦴','👀','👁️','👅','👄','💋','🩸','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟'];
-  grid.innerHTML = '';
-  ems.forEach(em => {
-    const item = document.createElement('div');
-    item.className = 'emoji-drawer-item';
-    item.textContent = em;
-    item.onclick = () => {
-      const input = document.getElementById('msgInput');
-      input.value += em;
-      input.focus();
-    };
-    grid.appendChild(item);
-  });
-}
-
-function toggleEmojiDrawer() {
-  document.getElementById('emojiDrawer').classList.toggle('open');
 }
 
 function handleMediaSelect(input) {
@@ -2053,7 +2224,6 @@ function closeStory(){
   document.getElementById('storyViewer').classList.remove('open');
 }
 
-// ── GROUP SETTINGS ──
 function openGroupSettingsCurrent() {
   if(currentChat && currentChatType === 'group') {
     openGroupSettings(currentChat);
@@ -2085,7 +2255,6 @@ function openGroupSettings(groupId) {
   ov.style.display = 'block'; setTimeout(()=>ov.classList.add('open'),10);
 }
 
-// ── GROUP AVATAR UPLOAD (DB) ──
 function handleGroupAvatarSelect(input) {
   const file = input.files[0];
   if(!file) return;
@@ -2117,7 +2286,6 @@ function renderGroupSettingsMemberList(group) {
   const list = document.getElementById('groupSettingsMemberList');
   list.innerHTML = '';
   
-  // admins alanı null ise oluşturan kişiyi yönetici sayalım
   const groupAdmins = group.admins || [group.created_by];
   const amIAdmin = group.created_by === myUsername || groupAdmins.includes(myUsername);
 
@@ -2136,7 +2304,6 @@ function renderGroupSettingsMemberList(group) {
     const kickHtml = (amIAdmin && u !== myUsername && u !== group.created_by)
       ? `<button class="kick-btn" onclick="kickMember('${u}')">Çıkar</button>` : '';
       
-    // YÖNETİCİ YAPMA BUTONU ENTEGRASYONU
     let adminPromoteHtml = '';
     if(amIAdmin && u !== myUsername && !isUserAdmin) {
       adminPromoteHtml = `<button class="kick-btn" style="border-color:var(--primary); color:var(--primary)" onclick="promoteToGroupAdmin('${u}')">Yönetici Yap</button>`;
@@ -2147,7 +2314,6 @@ function renderGroupSettingsMemberList(group) {
   });
 }
 
-// Gruba Yeni Yönetici Atama İşlemi
 async function promoteToGroupAdmin(username) {
   const group = groupsList.find(g=>g.id===currentGroupSettingsId);
   if(!group) return;
@@ -2214,7 +2380,6 @@ async function leaveOrDeleteGroup() {
   }
 }
 
-// ── ADD MEMBER TO EXISTING GROUP ──
 function openAddMemberToGroup() {
   const group = groupsList.find(g=>g.id===currentGroupSettingsId);
   if(!group) return;
@@ -2256,7 +2421,6 @@ async function addMemberToGroup(username) {
   toast(getDisplayName(username) + ' gruba eklendi ✓');
 }
 
-// ── DM SETTINGS PANEL LOGICS (WhatsApp Stili Profil Görünümü) ──
 function openDmSettingsCurrent() {
   if(currentChat && currentChatType === 'dm') {
     openDmSettings(currentChat);
@@ -2269,7 +2433,6 @@ async function openDmSettings(targetUser) {
   const email = emailCache[targetUser] || 'Bilinmeyen E-posta';
   const avImg = avatarCache[targetUser];
 
-  // UI güncellemesi
   const avEl = document.getElementById('dmSettingsAv');
   if(avImg) {
     avEl.innerHTML = `<img src="${avImg}" style="width:100%; height:100%; border-radius:20px; object-fit:cover;">`;
@@ -2282,22 +2445,19 @@ async function openDmSettings(targetUser) {
   document.getElementById('dmSettingsTitle').textContent = displayName;
   document.getElementById('dmSettingsEmail').textContent = email;
 
-  // Kişi Kaydet/Sil buton görünürlük ayarı
   const isSaved = myContacts[targetUser] !== undefined;
   document.getElementById('dmSaveContactBtn').style.display = isSaved ? 'none' : 'block';
   document.getElementById('dmDeleteContactBtn').style.display = isSaved ? 'block' : 'none';
 
-  // Engelleme durumunu yansıtma
   const blockBtn = document.getElementById('dmBlockBtn');
   if(blockedUsersList.has(targetUser)) {
     blockBtn.textContent = 'Engeli Kaldır';
-    blockBtn.className = 'save-btn'; // Yeşil renge dönmesi için
+    blockBtn.className = 'save-btn'; 
   } else {
     blockBtn.textContent = 'Engelle';
     blockBtn.className = 'danger-btn';
   }
 
-  // Paylaşılan medyalara varsayılan sekme
   switchMediaTab('media');
 
   document.getElementById('dmSettingsPanel').classList.add('open');
@@ -2305,18 +2465,16 @@ async function openDmSettings(targetUser) {
   ov.style.display = 'block'; setTimeout(()=>ov.classList.add('open'),10);
 }
 
-// Kişi kaydetme
 async function actionSaveCurrentDmContact() {
   if(!currentChat) return;
   
   let email = emailCache[currentChat];
   
-  // Eğer email önbellekte yoksa Supabase'den anlık çekelim
   if(!email) {
     const { data, error } = await db.from('profiles').select('email').eq('username', currentChat).single();
     if(data && data.email) {
       email = data.email;
-      emailCache[currentChat] = email; // Sonrası için önbelleğe de atalım
+      emailCache[currentChat] = email; 
     } else {
       toast('Kullanıcı verisi veritabanında bulunamadı!'); 
       return; 
@@ -2334,7 +2492,6 @@ async function actionSaveCurrentDmContact() {
   toast('Kişi başarıyla kaydedildi ✓');
 }
 
-// Kişi silme
 function actionDeleteCurrentDmContact() {
   if(!currentChat) return;
   if(!confirm('Bu kişiyi rehberinizden silmek istediğinize emin misiniz?')) return;
@@ -2347,7 +2504,6 @@ function actionDeleteCurrentDmContact() {
   toast('Kişi rehberinizden silindi.');
 }
 
-// Engelleme ve Engeli Kaldırma
 function toggleBlockCurrentDmUser() {
   if(!currentChat) return;
   if(blockedUsersList.has(currentChat)) {
@@ -2363,7 +2519,6 @@ function toggleBlockCurrentDmUser() {
   updateContactsPanel();
 }
 
-// Sekme Değişikliği ve Medya/Link Filtreleme
 async function switchMediaTab(tabName) {
   currentActiveMediaTab = tabName;
   document.getElementById('tabMediaBtn').classList.toggle('active', tabName === 'media');
@@ -2372,11 +2527,9 @@ async function switchMediaTab(tabName) {
   const container = document.getElementById('mediaTabContent');
   container.innerHTML = '⏳ Yükleniyor...';
 
-  // Mevcut sohbetteki mesajları sorgula
   const { data, error } = await db.from('messages').select('*').order('created_at', {ascending: false});
   if(error || !data) { container.innerHTML = 'Medya yüklenemedi.'; return; }
 
-  // Filtreleme
   const chatMsgs = data.filter(m => {
     const p = parseMessage(m);
     return p.isDM && ((m.username === myUsername && p.recipient === currentChat) || (m.username === currentChat && p.recipient === myUsername));
@@ -2433,12 +2586,10 @@ async function switchMediaTab(tabName) {
   }
 }
 
-// ── SESLİ MESAJ KAYIT SİSTEMİ (MICROPHONE CAPTURE) ──
 async function toggleVoiceRecording() {
   const btn = document.getElementById('voiceRecBtn');
   
   if (voiceRecorder && voiceRecorder.state === "recording") {
-    // Kaydı durdur ve gönder
     voiceRecorder.stop();
     btn.classList.remove('recording');
     btn.textContent = '🎙️';
@@ -2459,12 +2610,10 @@ async function toggleVoiceRecording() {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64Audio = reader.result;
-        // Sesli mesaj etiketleyip gönderiyoruz
         sendMessage(`[AUDIO]${base64Audio}[/AUDIO]`);
       };
       reader.readAsDataURL(audioBlob);
       
-      // Mikrofon izin akışlarını kapat
       stream.getTracks().forEach(track => track.stop());
     };
 
@@ -2477,60 +2626,79 @@ async function toggleVoiceRecording() {
   }
 }
 
-// ── SESLİ VE GÖRÜNTÜLÜ ARAMA ALTYAPISI (WEBRTC SIGNALLING) ──
+// ── SESLİ VE GÖRÜNTÜLÜ ARAMA ALTYAPISI (GRUP VE DM UYUMLU WEBRTC SIGNALLING) ──
 function initCallSignaling() {
   callSignalChannel = db.channel('yam-calls-signals')
     .on('broadcast', { event: 'call-invite' }, async ({ payload }) => {
-      // Bize gelen davetleri yakala
-      if (payload.to === myUsername && !activeCallData) {
+      // Bana gelen bir davet mi kontrol et
+      if (payload.targets && payload.targets.includes(myUsername) && !activeCallData) {
         activeCallData = payload;
         showIncomingCallWindow(payload);
       }
     })
     .on('broadcast', { event: 'call-answer' }, async ({ payload }) => {
+      // Benim başlattığım (veya içinde olduğum) aramaya gelen bir cevap mı?
       if (payload.to === myUsername && activeCallData && activeCallData.rtcSessionId === payload.rtcSessionId) {
         document.getElementById('callStatusLabel').textContent = 'BAĞLANIYOR...';
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+        if(peerConnections[payload.from]) {
+            await peerConnections[payload.from].setRemoteDescription(new RTCSessionDescription(payload.sdp));
+        }
       }
     })
     .on('broadcast', { event: 'call-candidate' }, async ({ payload }) => {
       if (payload.to === myUsername && activeCallData && activeCallData.rtcSessionId === payload.rtcSessionId) {
-        if(peerConnection) {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate));
+        if(peerConnections[payload.from]) {
+          await peerConnections[payload.from].addIceCandidate(new RTCIceCandidate(payload.candidate));
         }
       }
     })
     .on('broadcast', { event: 'call-hangup' }, ({ payload }) => {
       if (payload.to === myUsername && activeCallData && activeCallData.rtcSessionId === payload.rtcSessionId) {
-        toast('Arama sonlandırıldı.');
-        terminateCallState();
+        // Eğer grupta başkaları varsa sadece kapatanı düşürebiliriz ama basitlik adına aramayı bitiriyoruz.
+        toast(getDisplayName(payload.from) + ' aramadan ayrıldı.');
+        removePeerConnection(payload.from);
       }
     })
     .subscribe();
 }
 
-// Arama Başlatma Tetikleyici
 async function initiateCall(type) {
-  if(!currentChat || currentChatType !== 'dm') return;
-  if(blockedUsersList.has(currentChat)) { toast('Engellediğiniz birini arayamazsınız.'); return; }
+  if(!currentChat) return;
+  
+  let targets = [];
+  let isGroup = false;
+
+  if (currentChatType === 'dm') {
+    if(blockedUsersList.has(currentChat)) { toast('Engellediğiniz birini arayamazsınız.'); return; }
+    targets = [currentChat];
+  } else if (currentChatType === 'group') {
+    const group = groupsList.find(g => g.id === currentChat);
+    if(!group) return;
+    targets = group.members.filter(m => m !== myUsername);
+    if(targets.length === 0) { toast('Grupta aranacak başka kimse yok!'); return; }
+    isGroup = true;
+  }
 
   const sessionId = Math.random().toString(36).substring(2, 11);
   activeCallData = {
     from: myUsername,
-    to: currentChat,
-    type: type, // 'voice' or 'video'
-    rtcSessionId: sessionId
+    targets: targets,
+    type: type, 
+    rtcSessionId: sessionId,
+    isGroup: isGroup,
+    groupId: isGroup ? currentChat : null
   };
 
-  // Pencereyi aç
   document.getElementById('callWindow').style.display = 'flex';
-  document.getElementById('callAcceptBtn').style.display = 'none'; // Arayan taraf kabul butonunu görmez
-  document.getElementById('callUserLabel').textContent = getDisplayName(currentChat);
+  document.getElementById('callAcceptBtn').style.display = 'none'; 
+  
+  const callTitle = isGroup ? (groupsList.find(g=>g.id===currentChat)?.name || 'Grup') : getDisplayName(currentChat);
+  document.getElementById('callUserLabel').textContent = callTitle;
   document.getElementById('callStatusLabel').textContent = 'ARANIYOR...';
   
   const avEl = document.getElementById('callAv');
-  avEl.textContent = ini(getDisplayName(currentChat));
-  avEl.className = 'call-avatar ' + col(currentChat);
+  avEl.textContent = ini(callTitle);
+  avEl.className = 'call-avatar ' + (isGroup ? 'av4' : col(currentChat));
 
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
@@ -2539,27 +2707,30 @@ async function initiateCall(type) {
     });
 
     if(type === 'video') {
-      document.getElementById('callVideoContainer').style.display = 'block';
-      const localVideo = document.getElementById('localVideo');
-      localVideo.srcObject = localStream;
+      document.getElementById('callVideoContainer').style.display = 'grid';
+      document.getElementById('localVideo').srcObject = localStream;
     }
 
-    // Peer Connection Oluştur
-    setupPeerConnection();
+    // Her bir hedef kişi için PeerConnection oluştur ve teklif gönder (Yıldız Topolojisi / Mesh Benzetişimi)
+    for(const targetUser of targets) {
+        const pc = setupPeerConnection(targetUser);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
 
-    // SDP Offer Oluştur
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-
-    // Karşı tarafa daveti uçur
-    callSignalChannel.send({
-      type: 'broadcast',
-      event: 'call-invite',
-      payload: {
-        ...activeCallData,
-        sdp: offer
-      }
-    });
+        callSignalChannel.send({
+          type: 'broadcast',
+          event: 'call-invite',
+          payload: {
+            from: myUsername,
+            targets: [targetUser], // Sinyali hedefe özel iletiyoruz
+            type: type,
+            rtcSessionId: sessionId,
+            isGroup: isGroup,
+            groupId: isGroup ? currentChat : null,
+            sdp: offer
+          }
+        });
+    }
 
   } catch(e) {
     toast('Kamera/Mikrofon donanımı başlatılamadı!');
@@ -2567,19 +2738,24 @@ async function initiateCall(type) {
   }
 }
 
-// Gelen Aramayı Gösteren Ekran
 function showIncomingCallWindow(callData) {
   document.getElementById('callWindow').style.display = 'flex';
-  document.getElementById('callAcceptBtn').style.display = 'flex'; // Kabul et butonu aktif
-  document.getElementById('callUserLabel').textContent = getDisplayName(callData.from);
+  document.getElementById('callAcceptBtn').style.display = 'flex'; 
+  
+  let callerTitle = getDisplayName(callData.from);
+  if(callData.isGroup) {
+      const g = groupsList.find(gr=>gr.id === callData.groupId);
+      callerTitle = (g ? g.name : 'Grup') + ' (' + callerTitle + ')';
+  }
+
+  document.getElementById('callUserLabel').textContent = callerTitle;
   document.getElementById('callStatusLabel').textContent = `GELEN ${callData.type === 'video' ? 'GÖRÜNTÜLÜ' : 'SESLİ'} ARAMA...`;
   
   const avEl = document.getElementById('callAv');
-  avEl.textContent = ini(getDisplayName(callData.from));
+  avEl.textContent = ini(callerTitle);
   avEl.className = 'call-avatar ' + col(callData.from);
 }
 
-// Arama Cevaplama
 async function acceptCall() {
   if(!activeCallData) return;
   document.getElementById('callAcceptBtn').style.display = 'none';
@@ -2592,25 +2768,23 @@ async function acceptCall() {
     });
 
     if(activeCallData.type === 'video') {
-      document.getElementById('callVideoContainer').style.display = 'block';
+      document.getElementById('callVideoContainer').style.display = 'grid';
       document.getElementById('localVideo').srcObject = localStream;
     }
 
-    setupPeerConnection();
+    const caller = activeCallData.from;
+    const pc = setupPeerConnection(caller);
 
-    // Davet edenin SDP tanımını ekle
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(activeCallData.sdp));
-
-    // SDP Answer oluştur ve gönder
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
+    await pc.setRemoteDescription(new RTCSessionDescription(activeCallData.sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
 
     callSignalChannel.send({
       type: 'broadcast',
       event: 'call-answer',
       payload: {
         from: myUsername,
-        to: activeCallData.from,
+        to: caller,
         rtcSessionId: activeCallData.rtcSessionId,
         sdp: answer
       }
@@ -2622,75 +2796,108 @@ async function acceptCall() {
   }
 }
 
-function setupPeerConnection() {
-  peerConnection = new RTCPeerConnection(rtcConfig);
+function setupPeerConnection(targetUser) {
+  const pc = new RTCPeerConnection(rtcConfig);
+  peerConnections[targetUser] = pc;
   
-  // Track ekleme
-  localStream.getTracks().forEach(track => {
-    peerConnection.addTrack(track, localStream);
-  });
+  if(localStream) {
+    localStream.getTracks().forEach(track => {
+      pc.addTrack(track, localStream);
+    });
+  }
 
-  // Karşı taraftan akış geldiğinde yakala
-  peerConnection.ontrack = e => {
-    const remoteVideo = document.getElementById('remoteVideo');
-    if(remoteVideo) {
-      remoteVideo.srcObject = e.streams[0];
-    }
+  pc.ontrack = e => {
+    addRemoteVideo(targetUser, e.streams[0]);
     document.getElementById('callStatusLabel').textContent = 'BAĞLANDI';
   };
 
-  // ICE adayları üretildikçe gönder
-  peerConnection.onicecandidate = e => {
+  pc.onicecandidate = e => {
     if(e.candidate && activeCallData) {
       callSignalChannel.send({
         type: 'broadcast',
         event: 'call-candidate',
         payload: {
           from: myUsername,
-          to: activeCallData.from === myUsername ? activeCallData.to : activeCallData.from,
+          to: targetUser,
           rtcSessionId: activeCallData.rtcSessionId,
           candidate: e.candidate
         }
       });
     }
   };
+  
+  return pc;
 }
 
-// Aramayı Sonlandırma (Butona Basarak)
+function addRemoteVideo(targetUser, stream) {
+    const container = document.getElementById('callVideoContainer');
+    let vid = document.getElementById('remoteVideo_' + targetUser);
+    if(!vid) {
+        vid = document.createElement('video');
+        vid.id = 'remoteVideo_' + targetUser;
+        vid.className = 'remote-video';
+        vid.autoplay = true;
+        vid.playsInline = true;
+        container.appendChild(vid);
+    }
+    vid.srcObject = stream;
+}
+
+function removePeerConnection(targetUser) {
+    if(peerConnections[targetUser]) {
+        peerConnections[targetUser].close();
+        delete peerConnections[targetUser];
+    }
+    const vid = document.getElementById('remoteVideo_' + targetUser);
+    if(vid) vid.remove();
+
+    if(Object.keys(peerConnections).length === 0) {
+        terminateCallState();
+    }
+}
+
 function hangUpCall() {
   if (activeCallData) {
-    callSignalChannel.send({
-      type: 'broadcast',
-      event: 'call-hangup',
-      payload: {
-        from: myUsername,
-        to: activeCallData.from === myUsername ? activeCallData.to : activeCallData.from,
-        rtcSessionId: activeCallData.rtcSessionId
-      }
-    });
+      // İçinde bulunduğumuz herkese kapatma sinyali gönder
+      const targetsToNotify = activeCallData.from === myUsername ? activeCallData.targets : [activeCallData.from];
+      
+      targetsToNotify.forEach(t => {
+          callSignalChannel.send({
+            type: 'broadcast',
+            event: 'call-hangup',
+            payload: {
+              from: myUsername,
+              to: t,
+              rtcSessionId: activeCallData.rtcSessionId
+            }
+          });
+      });
   }
   terminateCallState();
 }
 
 function terminateCallState() {
-  // Akışları durdur
   if(localStream) {
     localStream.getTracks().forEach(track => track.stop());
     localStream = null;
   }
-  if(peerConnection) {
-    peerConnection.close();
-    peerConnection = null;
-  }
-  // Elemanları gizle ve sıfırla
+  
+  // Tüm peer bağlantılarını temizle
+  Object.keys(peerConnections).forEach(k => {
+      peerConnections[k].close();
+  });
+  peerConnections = {};
+
   document.getElementById('callWindow').style.display = 'none';
   document.getElementById('callVideoContainer').style.display = 'none';
-  document.getElementById('remoteVideo').srcObject = null;
+  
+  // Container içindeki remote videoları temizle
+  document.querySelectorAll('.remote-video').forEach(el => el.remove());
   document.getElementById('localVideo').srcObject = null;
+  
   activeCallData = null;
 }
 
-// Mikrofon Susturma
 function toggleMuteCall() {
   if (localStream) {
     const audioTrack = localStream.getAudioTracks()[0];
@@ -2703,7 +2910,6 @@ function toggleMuteCall() {
   }
 }
 
-// ── PANELS ──
 function openProfile(){fillProfilePanel();openPanel('profilePanel')}
 
 function openPanel(id){
@@ -2720,7 +2926,6 @@ function closeAllPanels(){
   ov.classList.remove('open');setTimeout(()=>ov.style.display='none',300);
 }
 
-// ── OTP INPUTS ──
 function setupOTPInputs(){
   for(let i=0;i<6;i++){
     const inp=document.getElementById('d'+i);
@@ -2800,4 +3005,4 @@ if (document.readyState === 'loading') {
 </body>
 </html>
 
-
+bu
