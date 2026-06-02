@@ -142,13 +142,14 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 #messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 .dsep{text-align:center;margin:12px 0}
 .dsep span{background:var(--border);color:var(--muted);font-size:11px;font-weight:600;border-radius:12px;padding:5px 14px}
-.mrow{display:flex;margin-bottom:2px;padding:0 6px;transition:opacity .2s;user-select:none;}
+.mrow{display:flex;margin-bottom:2px;padding:0 6px;transition:opacity .2s;user-select:none;will-change:transform, opacity;}
 .mrow.mine{justify-content:flex-end}
 .bubble{
   max-width:75%;padding:10px 14px;position:relative;
   word-break:break-word;box-shadow:0 2px 8px rgba(0,0,0,0.06);
   animation:bpop .22s cubic-bezier(.16,1,.3,1);
   transition: filter 0.3s ease;
+  will-change: transform;
 }
 @keyframes bpop{from{transform:translateY(8px) scale(.95);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
 .mrow.mine .bubble{background:var(--gradient);color:#fff;border-radius:20px 20px 4px 20px}
@@ -181,6 +182,11 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   font-size: 14px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   z-index: 5;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.msg-reaction:hover {
+  transform: scale(1.1);
 }
 .mrow.mine .msg-reaction {
   right: auto;
@@ -206,6 +212,41 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .send-btn{width:46px;height:46px;border-radius:50%;background:var(--gradient);border:none;color:#fff;font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(99,102,241,.3);transition:all .2s}
 .send-btn:hover{transform:scale(1.06);box-shadow:0 6px 18px rgba(99,102,241,.4)}
 .send-btn:active{transform:scale(.95)}
+
+/* ATTACHMENT MENU */
+.attach-menu {
+  position: absolute;
+  bottom: 70px;
+  left: 14px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 10px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  z-index: 100;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  animation: bpop 0.2s cubic-bezier(.16,1,.3,1);
+}
+.attach-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+  font-weight: 500;
+}
+.attach-item:hover {
+  background: var(--bg);
+}
 
 /* PANELS (slide from right) */
 .panel{position:fixed;top:0;right:-100%;bottom:0;width:min(340px,95vw);background:var(--surface);z-index:200;transition:right .3s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column;box-shadow:-8px 0 30px rgba(0,0,0,0.1)}
@@ -424,7 +465,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   border-top: 1px solid var(--border);
   z-index: 100;
   flex-shrink: 0;
-  overflow-y: auto;
+  overflow-y: hidden; 
   animation: bpop 0.2s cubic-bezier(.16,1,.3,1);
 }
 .emoji-drawer-header {
@@ -437,12 +478,25 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   top: 0;
   background: var(--surface);
   z-index: 2;
+  display: flex;
+  justify-content: space-around;
+}
+.emoji-drawer-header span {
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: background 0.2s;
+}
+.emoji-drawer-header span:hover {
+  background: var(--bg);
 }
 .emoji-drawer-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 8px;
   padding: 12px;
+  overflow-y: auto;
+  flex: 1;
 }
 .emoji-drawer-item {
   font-size: 24px;
@@ -452,6 +506,20 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   transition: transform 0.1s;
 }
 .emoji-drawer-item:hover { transform: scale(1.25); }
+
+/* Özel GIF Arama Kutusu */
+.gif-search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  margin-bottom: 8px;
+  font-family: inherit;
+  font-size: 13px;
+}
 
 /* Özel Klavye Tasarımları */
 .custom-kb-grid {
@@ -854,6 +922,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
     </div>
 
     <div class="input-bar" id="inputBar">
+      <button class="attach-btn" onclick="toggleAttachmentMenu()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);padding-bottom:2px;user-select:none;">📎</button>
       <div class="input-wrap">
         <span class="emoji-btn" onclick="toggleEmojiDrawer()">✨</span>
         <textarea id="msgInput" rows="1" placeholder="Bir mesaj yazın..."></textarea>
@@ -861,6 +930,17 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
       </div>
       <button class="send-btn" id="sendMsgBtn" onclick="sendMessage()">➤</button>
     </div>
+    
+    <!-- Ek Gönderim Menüsü -->
+    <div id="attachmentMenu" class="attach-menu">
+      <button class="attach-item" onclick="document.getElementById('chatMediaUpload').click()">🖼️ Galeri</button>
+      <button class="attach-item" onclick="document.getElementById('chatMediaCapture').click()">📸 Kamera</button>
+      <button class="attach-item" onclick="sendLocation(false)">📍 Konum</button>
+      <button class="attach-item" onclick="sendLocation(true)">📡 Canlı Konum</button>
+    </div>
+    
+    <input type="file" id="chatMediaUpload" accept="image/*,video/*" style="display:none" onchange="handleChatMediaSelect(this)">
+    <input type="file" id="chatMediaCapture" accept="image/*,video/*" capture="environment" style="display:none" onchange="handleChatMediaSelect(this)">
 
     <!-- SANAL KLAVYE VE EMOJİ ALANI (Dahili) -->
     <div id="virtualKeyboardArea">
@@ -1263,6 +1343,45 @@ function removeChatBg() {
   toast('Sohbet arka planı kaldırıldı.');
 }
 
+// EK (ATTACHMENT) MENÜSÜ İŞLEMLERİ
+function toggleAttachmentMenu() {
+    const menu = document.getElementById('attachmentMenu');
+    menu.style.display = (menu.style.display === 'flex') ? 'none' : 'flex';
+}
+window.addEventListener('click', (e) => {
+    if(!e.target.closest('#attachmentMenu') && !e.target.closest('.attach-btn')) {
+        document.getElementById('attachmentMenu').style.display = 'none';
+    }
+});
+
+function handleChatMediaSelect(input) {
+    const file = input.files[0];
+    if(!file) return;
+    if(file.size > 2 * 1024 * 1024) { toast('Dosya çok büyük (Maks 2MB)'); return; }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const data = e.target.result;
+        const type = file.type.startsWith('video') ? 'video' : 'image';
+        sendMessage(`[MEDIA:${type}]${data}[/MEDIA]`);
+        document.getElementById('attachmentMenu').style.display = 'none';
+        input.value = '';
+    };
+    reader.readAsDataURL(file);
+}
+
+function sendLocation(isLive) {
+    if(!navigator.geolocation) { toast('Cihazınızda konum servisi desteklenmiyor.'); return; }
+    toast('Konumunuz tespit ediliyor...');
+    navigator.geolocation.getCurrentPosition(pos => {
+        const tag = isLive ? 'LIVE_LOCATION' : 'LOCATION';
+        sendMessage(`[${tag}]${pos.coords.latitude},${pos.coords.longitude}[/${tag}]`);
+        document.getElementById('attachmentMenu').style.display = 'none';
+    }, err => {
+        toast('Konum alınamadı. İzinleri kontrol ediniz.');
+    }, { enableHighAccuracy: true });
+}
+
 // ── SHOW/HIDE SCREENS ──
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -1380,7 +1499,7 @@ function renderAccountList() {
      row.className = 'pu';
      const isCurrent = acc.email === myEmail;
      const avHtml = acc.avatar 
-        ? `<img src="${acc.avatar}" style="width:40px;height:40px;border-radius:12px;object-fit:cover;flex-shrink:0;">`
+        ? `<img src="${acc.avatar}" loading="lazy" style="width:40px;height:40px;border-radius:12px;object-fit:cover;flex-shrink:0;">`
         : `<div class="pu-av ${col(acc.username || acc.email)}" style="width:40px;height:40px;flex-shrink:0;">${ini(acc.username || acc.email)}</div>`;
      
      row.innerHTML = `
@@ -1527,14 +1646,14 @@ function updateHeaderState() {
     
     const avImg = currentChatType === 'group' ? groupAvatarCache[currentChat] : avatarCache[currentChat];
     if(avImg) {
-      chatAv.innerHTML = `<img src="${avImg}" class="header-av-img">`;
+      chatAv.innerHTML = `<img src="${avImg}" class="header-av-img" loading="lazy">`;
     }
     chatStatus.textContent = currentChatType === 'group' ? 'Grup Sohbeti' : (onlineUsers[currentChat] ? 'Çevrimiçi' : 'Çevrimdışı');
   } else {
     backBtn.style.display = 'none';
     myAv.style.display = 'flex';
     if(myAvatarUrl) {
-      myAv.innerHTML = `<img src="${myAvatarUrl}" class="header-av-img">`;
+      myAv.innerHTML = `<img src="${myAvatarUrl}" class="header-av-img" loading="lazy">`;
       myAv.className = 'header-avatar';
     } else {
       myAv.textContent = ini(myUsername);
@@ -1629,7 +1748,7 @@ function sendNotification(title,body){
 function fillProfilePanel(){
   const avEl = document.getElementById('profileAv');
   if(myAvatarUrl) {
-    avEl.innerHTML = `<img src="${myAvatarUrl}" class="profile-av-real">`;
+    avEl.innerHTML = `<img src="${myAvatarUrl}" class="profile-av-real" loading="lazy">`;
     avEl.className = 'profile-av';
     avEl.style.background = 'none';
   } else {
@@ -1743,14 +1862,73 @@ function toggleEmojiDrawer() {
 
 function renderEmojiKeyboard() {
   const vka = document.getElementById('virtualKeyboardArea');
-  const ems = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃','😺','😸','😻','😼','😽','🙀','😿','😾','👋','🤚','🖐️','✋','🖖','👌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟'];
-  
   vka.innerHTML = `
-    <div class="emoji-drawer-header">Sık Kullanılan Emojiler</div>
-    <div class="emoji-drawer-grid">
-      ${ems.map(em => `<div class="emoji-drawer-item" onclick="insertChar('${em}')">${em}</div>`).join('')}
+    <div class="emoji-drawer-header">
+        <span onclick="switchEmojiTab('emoji')" id="tab-emoji" style="color:var(--primary);">😀 Emojiler</span>
+        <span onclick="switchEmojiTab('gif')" id="tab-gif" style="color:var(--text);">🎞️ GIF'ler</span>
+    </div>
+    <div id="emojiContainer" class="emoji-drawer-grid"></div>
+    <div id="gifContainerWrap" style="display:none; flex-direction:column; flex:1; overflow:hidden; padding:8px;">
+        <input type="text" id="gifSearchInput" class="gif-search-input" placeholder="GIF Ara..." onkeyup="if(event.key==='Enter') searchGifs(this.value)">
+        <div id="gifContainer" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; overflow-y:auto; flex:1;"></div>
     </div>
   `;
+  
+  const ems = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃','😺','😸','😻','😼','😽','🙀','😿','😾','👋','🤚','🖐️','✋','🖖','👌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟'];
+  
+  document.getElementById('emojiContainer').innerHTML = ems.map(em => `<div class="emoji-drawer-item" onclick="insertChar('${em}')">${em}</div>`).join('');
+}
+
+function switchEmojiTab(tab) {
+    if(tab === 'emoji') {
+        document.getElementById('emojiContainer').style.display = 'grid';
+        document.getElementById('gifContainerWrap').style.display = 'none';
+        document.getElementById('tab-emoji').style.color = 'var(--primary)';
+        document.getElementById('tab-gif').style.color = 'var(--text)';
+    } else {
+        document.getElementById('emojiContainer').style.display = 'none';
+        document.getElementById('gifContainerWrap').style.display = 'flex';
+        document.getElementById('tab-emoji').style.color = 'var(--text)';
+        document.getElementById('tab-gif').style.color = 'var(--primary)';
+        loadGifs();
+    }
+}
+
+async function loadGifs() {
+    searchGifs('trending');
+}
+
+async function searchGifs(query) {
+    const container = document.getElementById('gifContainer');
+    container.innerHTML = '<div style="grid-column: span 3; text-align:center; color:var(--muted); font-size:13px; padding:10px;">⏳ GIF\'ler Yükleniyor...</div>';
+    try {
+        const apiKey = "LIVDSRZULELA";
+        const locale = "tr_TR";
+        const limit = 24;
+
+        const endpoint = query === 'trending' || !query.trim() ?
+            `https://g.tenor.com/v1/trending?key=${apiKey}&limit=${limit}&locale=${locale}` :
+            `https://g.tenor.com/v1/search?q=${encodeURIComponent(query)}&key=${apiKey}&limit=${limit}&locale=${locale}`;
+            
+        const res = await fetch(endpoint);
+        const json = await res.json();
+        
+        if(json.results && json.results.length > 0) {
+            container.innerHTML = json.results.map(g => {
+                const url = g.media[0].nanogif.url;
+                return `<img loading="lazy" src="${url}" onclick="sendGifUrl('${url}')" style="width:100%; height:90px; object-fit:cover; border-radius:8px; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.1);">`;
+            }).join('');
+        } else {
+            container.innerHTML = '<div style="grid-column: span 3; text-align:center; color:var(--muted); font-size:13px;">GIF bulunamadı.</div>';
+        }
+    } catch (e) {
+        container.innerHTML = '<div style="grid-column: span 3; text-align:center; color:var(--danger); font-size:13px;">Bağlantı hatası oluştu. Lütfen tekrar deneyiniz.</div>';
+    }
+}
+
+function sendGifUrl(url) {
+    sendMessage(`[MEDIA:image]${url}[/MEDIA]`);
+    closeVirtualKeyboard();
 }
 
 function renderCustomKeyboard() {
@@ -1904,6 +2082,8 @@ function updateLastMessageCache(m) {
   
   if(cleanTxt.startsWith('[AUDIO]') && cleanTxt.endsWith('[/AUDIO]')) {
     cleanTxt = '🎤 Sesli Mesaj';
+  } else if (cleanTxt.startsWith('[LOCATION]') || cleanTxt.startsWith('[LIVE_LOCATION]')) {
+    cleanTxt = '📍 Konum Paylaşıldı';
   } else if (cleanTxt.includes('[STORY_REPLY]')) {
     cleanTxt = '💬 Durum Yanıtı';
   } else if (cleanTxt.includes('[/REPLY]')) {
@@ -1914,6 +2094,8 @@ function updateLastMessageCache(m) {
     } else if (rMatchOld) {
       cleanTxt = rMatchOld[3];
     }
+  } else if (cleanTxt.includes('[MEDIA:')) {
+      cleanTxt = '📷 Medya Dosyası';
   }
   
   if (p.isDM) {
@@ -2019,7 +2201,11 @@ function subscribeMessages(){
       let show=false;
       if(currentChatType==='dm'&&parsed.isDM&&((m.username===myUsername&&parsed.recipient===currentChat)||(m.username===currentChat&&parsed.recipient===myUsername)))show=true;
       if(currentChatType==='group'&&parsed.groupId===currentChat)show=true;
-      if(show){document.getElementById('messages').appendChild(makeRow(m,parsed.cleanText,parsed.reaction));scrollBot();}
+      if(show){
+          const row = makeRow(m,parsed.cleanText,parsed.reaction);
+          document.getElementById('messages').appendChild(row);
+          window.requestAnimationFrame(() => scrollBot());
+      }
       if(m.username!==myUsername){
         if(parsed.isDM&&parsed.recipient===myUsername){
           const displayName = getDisplayName(m.username);
@@ -2082,7 +2268,7 @@ function broadcastTyping(active){
   presenceChannel?.send({type:'broadcast',event:'typing',payload:{username:myUsername,typing:active}});
 }
 
-// İFADE (REACTION) BIRAKMA DENETİMLERİ
+// İFADE (REACTION) KONTROLLERİ
 function showReactionPicker(msgId, bubbleEl) {
   currentReactionMsgId = msgId;
   const picker = document.getElementById('reactionPicker');
@@ -2097,15 +2283,28 @@ function closeReactionPicker() {
   currentReactionMsgId = null;
 }
 
-async function addReaction(emoji) {
-  if(!currentReactionMsgId) return;
-  const msg = loadedMessagesList.find(m => m.id === currentReactionMsgId);
+async function addReactionToMsg(msgId, emoji) {
+  const msg = loadedMessagesList.find(m => m.id === msgId);
   if(msg) {
       const newText = msg.text.replace(/\[RX:.*?\]/g, '') + `[RX:${emoji}]`;
-      const { error } = await db.from('messages').update({text: newText}).eq('id', currentReactionMsgId);
+      const { error } = await db.from('messages').update({text: newText}).eq('id', msgId);
       if(error) toast('İfade eklenemedi.');
   }
+}
+
+async function addReaction(emoji) {
+  if(!currentReactionMsgId) return;
+  await addReactionToMsg(currentReactionMsgId, emoji);
   closeReactionPicker();
+}
+
+async function removeReaction(msgId) {
+  const msg = loadedMessagesList.find(x => x.id === msgId);
+  if(msg) {
+      const newText = msg.text.replace(/\[RX:.*?\]/g, '');
+      const { error } = await db.from('messages').update({text: newText}).eq('id', msgId);
+      if(error) toast('İfade kaldırılamadı.');
+  }
 }
 
 // YANITLAMA VE DÜZENLEME DESTEKLİ MESAJ GÖNDERİMİ
@@ -2160,6 +2359,10 @@ async function sendMessage(customText = null){
     let previewText = replyParsed.cleanText;
     if(previewText.startsWith('[AUDIO]') && previewText.endsWith('[/AUDIO]')) {
       previewText = '🎤 Sesli Mesaj';
+    } else if (previewText.startsWith('[LOCATION]') || previewText.startsWith('[LIVE_LOCATION]')) {
+      previewText = '📍 Konum';
+    } else if (previewText.includes('[MEDIA:')) {
+      previewText = '📷 Medya';
     }
     text = `[REPLY:${replyingToMessage.id}]${replyingToMessage.username}|${previewText}[/REPLY]${text}`;
     cancelReply();
@@ -2181,7 +2384,12 @@ function triggerReply(m, cleanText) {
   let dispText = cleanText;
   if(dispText.startsWith('[AUDIO]') && dispText.endsWith('[/AUDIO]')) {
     dispText = '🎤 Sesli Mesaj';
+  } else if (dispText.startsWith('[LOCATION]') || dispText.startsWith('[LIVE_LOCATION]')) {
+    dispText = '📍 Konum';
+  } else if (dispText.includes('[MEDIA:')) {
+    dispText = '📷 Medya';
   }
+  
   document.getElementById('replyPreviewText').textContent = dispText;
   document.getElementById('msgInput').focus();
 }
@@ -2340,6 +2548,29 @@ function makeRow(m, cleanText, reaction) {
   const quotedReplyMatchNew = cleanText.match(/^\[REPLY:([^\]]+)\](.*?)\|(.*?)\[\/REPLY\]([\s\S]*)$/);
   const quotedReplyMatchOld = cleanText.match(/^\[REPLY\](.*?)\|(.*?)\[\/REPLY\]([\s\S]*)$/);
   
+  // Konum Formatlarını Çözümleme
+  let locationHtml = null;
+  if(cleanText.startsWith('[LOCATION]') && cleanText.endsWith('[/LOCATION]')) {
+      const coords = cleanText.substring(10, cleanText.length - 11);
+      locationHtml = `<div class="btext"><a href="https://www.google.com/maps?q=${coords}" target="_blank" style="color:var(--primary);text-decoration:underline;display:flex;align-items:center;gap:4px;">📍 Konumu Gör</a></div>`;
+  } else if(cleanText.startsWith('[LIVE_LOCATION]') && cleanText.endsWith('[/LIVE_LOCATION]')) {
+      const coords = cleanText.substring(15, cleanText.length - 16);
+      locationHtml = `<div class="btext"><a href="https://www.google.com/maps?q=${coords}" target="_blank" style="color:var(--danger);text-decoration:underline;display:flex;align-items:center;gap:4px;">📡 Canlı Konum</a></div>`;
+  }
+  
+  // Medya (Fotoğraf/Video/GIF) Formatı Çözümleme
+  let mediaInternalHtml = null;
+  const directMediaMatch = cleanText.match(/^\[MEDIA:(image|video)\](.*?)\[\/MEDIA\]$/);
+  if (directMediaMatch) {
+      const type = directMediaMatch[1];
+      const src = directMediaMatch[2];
+      if(type === 'video') {
+          mediaInternalHtml = `<video loading="lazy" src="${src}" controls style="max-width:100%; max-height:250px; border-radius:12px; margin-bottom:4px;"></video>`;
+      } else {
+          mediaInternalHtml = `<img loading="lazy" src="${src}" style="max-width:100%; max-height:250px; border-radius:12px; margin-bottom:4px;">`;
+      }
+  }
+
   if (replyMatch) {
     const storyContent = replyMatch[1];
     const replyText = replyMatch[2];
@@ -2399,15 +2630,19 @@ function makeRow(m, cleanText, reaction) {
         <span class="voice-duration">Ses</span>
       </div>
     `;
+  } else if (locationHtml) {
+      finalBodyHtml = locationHtml;
+  } else if (mediaInternalHtml) {
+      finalBodyHtml = mediaInternalHtml;
   } else {
     finalBodyHtml = `<div class="btext">${esc(cleanText||m.text)}</div>`;
   }
   
   if (reaction) {
-      finalBodyHtml += `<div class="msg-reaction">${esc(reaction)}</div>`;
+      finalBodyHtml += `<div class="msg-reaction" onclick="event.stopPropagation(); removeReaction('${m.id}')">${esc(reaction)}</div>`;
   }
 
-  row.innerHTML=`<div class="bubble" style="transition: transform 0.1s ease-out;">
+  row.innerHTML=`<div class="bubble">
     ${showDel?`<button class="bdel" onclick="deleteMsg('${m.id}')">✕</button>`:''}
     ${!mine?`<div class="bsender">${esc(displayName)}</div>`:''}
     ${finalBodyHtml}
@@ -2420,18 +2655,50 @@ function makeRow(m, cleanText, reaction) {
   let isLongPress = false;
   let lpTimer = null;
   let dragThresholdMet = false;
+  let isVerticalScroll = false; 
   
   const bubble = row.querySelector('.bubble');
+  const isMobileDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  let lastClickTime = 0;
+
+  // Cihaz Bazlı Tıklama Dinleyicisi
+  row.addEventListener('click', (e) => {
+      if (e.target.closest('.bdel') || e.target.closest('.msg-reaction') || e.target.closest('img') || e.target.closest('video') || e.target.closest('a') || e.target.closest('button')) {
+          return; 
+      }
+      
+      if (!isMobileDevice) {
+          triggerReply(m, cleanText);
+      }
+  });
+
+  // Mobil Cihazlar İçin Çift Tıklama İle Kalp Bırakma (Instagram Stili)
+  if(isMobileDevice) {
+      row.addEventListener('touchstart', (e) => {
+          if (e.target.closest('.bdel') || e.target.closest('.msg-reaction') || e.target.closest('img') || e.target.closest('video') || e.target.closest('a') || e.target.closest('button')) {
+              return; 
+          }
+          const currentTime = Date.now();
+          if (currentTime - lastClickTime < 300) {
+              addReactionToMsg(m.id, '❤️');
+              lastClickTime = 0; 
+              e.preventDefault(); 
+          } else {
+              lastClickTime = currentTime;
+          }
+      }, {passive: false}); 
+  }
 
   const onStart = (clientX, clientY) => {
     startX = clientX; startY = clientY;
     isDragging = true;
     dragThresholdMet = false;
     isLongPress = false;
+    isVerticalScroll = false;
     bubble.style.transition = 'none';
 
     lpTimer = setTimeout(() => {
-        if(!dragThresholdMet && isDragging) {
+        if(!dragThresholdMet && isDragging && !isVerticalScroll) {
             isLongPress = true;
             showReactionPicker(m.id, bubble);
         }
@@ -2439,20 +2706,29 @@ function makeRow(m, cleanText, reaction) {
   };
 
   const onMove = (clientX, clientY) => {
-    if (!isDragging || isLongPress) return;
+    if (!isDragging || isLongPress || isVerticalScroll) return;
     currentX = clientX;
     const diffX = currentX - startX;
     const diffY = clientY - startY;
     
-    if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) {
-        dragThresholdMet = true;
-        clearTimeout(lpTimer);
+    if (!dragThresholdMet) {
+        if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 5) {
+            isVerticalScroll = true;
+            clearTimeout(lpTimer);
+            return;
+        }
+        if (Math.abs(diffX) > 10) {
+            dragThresholdMet = true;
+            clearTimeout(lpTimer);
+        }
     }
 
-    if (mine && diffX < 0 && diffX > -100) {
-      bubble.style.transform = `translateX(${diffX}px)`;
-    } else if (!mine && diffX > 0 && diffX < 100) {
-      bubble.style.transform = `translateX(${diffX}px)`;
+    if (dragThresholdMet && !isVerticalScroll) {
+        if (mine && diffX < 0 && diffX > -100) {
+          bubble.style.transform = `translateX(${diffX}px)`;
+        } else if (!mine && diffX > 0 && diffX < 100) {
+          bubble.style.transform = `translateX(${diffX}px)`;
+        }
     }
   };
 
@@ -2466,22 +2742,24 @@ function makeRow(m, cleanText, reaction) {
         return;
     }
 
-    const diffX = currentX - startX;
-    bubble.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-    bubble.style.transform = 'translateX(0px)';
-    
-    if (dragThresholdMet) {
-        if (mine && diffX < -50) {
-          triggerReply(m, cleanText);
-        } else if (!mine && diffX > 50) {
-          triggerReply(m, cleanText);
+    if (!isVerticalScroll) {
+        const diffX = currentX - startX;
+        bubble.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        bubble.style.transform = 'translateX(0px)';
+        
+        if (dragThresholdMet) {
+            if (mine && diffX < -50) {
+              triggerReply(m, cleanText);
+            } else if (!mine && diffX > 50) {
+              triggerReply(m, cleanText);
+            }
         }
     }
     
     startX = 0; currentX = 0;
   };
 
-  // Dokunmatik Cihazlar (Mobil)
+  // Dokunmatik Cihazlar (Mobil) Sürükleme
   row.addEventListener('touchstart', e => onStart(e.touches[0].clientX, e.touches[0].clientY), {passive: true});
   row.addEventListener('touchmove', e => onMove(e.touches[0].clientX, e.touches[0].clientY), {passive: true});
   row.addEventListener('touchend', onEnd);
@@ -2492,16 +2770,17 @@ function makeRow(m, cleanText, reaction) {
   window.addEventListener('mousemove', e => { if (isDragging) onMove(e.clientX, e.clientY); });
   window.addEventListener('mouseup', () => { if (isDragging) onEnd(); });
 
-  // Sadece Çift Tıklama İle Yanıtlama (Masaüstü için de ek güvenlik)
-  row.addEventListener('dblclick', () => {
-      triggerReply(m, cleanText);
-  });
-
   return row;
 }
 
 function dsep(label){const d=document.createElement('div');d.className='dsep';d.innerHTML=`<span>${label}</span>`;return d;}
-function scrollBot(){const el=document.getElementById('messages');setTimeout(()=>el.scrollTop=el.scrollHeight,50);}
+
+function scrollBot(){
+    const el=document.getElementById('messages');
+    window.requestAnimationFrame(() => {
+        el.scrollTop=el.scrollHeight;
+    });
+}
 
 // ── MAIN CHAT LIST PANEL ──
 function updateContactsPanel(){
@@ -2523,7 +2802,7 @@ function updateContactsPanel(){
         
         const gAvImg = groupAvatarCache[g.id];
         const gAvHtml = gAvImg
-          ? `<img src="${gAvImg}" style="width:46px;height:46px;border-radius:14px;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.1)">`
+          ? `<img src="${gAvImg}" loading="lazy" style="width:46px;height:46px;border-radius:14px;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.1)">`
           : `<div class="pu-av av4">#</div>`;
           
         let lastMsgText = `${g.members.length} üye`;
@@ -2667,7 +2946,7 @@ function renderStories(stories){
     const displayName = getDisplayName(username);
     const avImg = avatarCache[username];
     const innerContent = avImg
-      ? `<img src="${avImg}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+      ? `<img src="${avImg}" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
       : `<span class="avatar-bg ${c}" style="width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff">${ini(displayName)}</span>`;
     item.innerHTML=`<div class="story-ring"><div class="story-inner">${innerContent}</div></div><div class="story-name">${esc(displayName)}</div>`;
     item.onclick=()=>viewStories(ss,username);
@@ -2798,7 +3077,7 @@ function renderStoryViewer(){
   const svAv = document.getElementById('svAv');
   const avImg = avatarCache[s.username];
   if(avImg) {
-    svAv.innerHTML = `<img src="${avImg}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`;
+    svAv.innerHTML = `<img src="${avImg}" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`;
     svAv.className = 'story-viewer-av';
   } else {
     svAv.textContent = ini(displayName);
@@ -2884,7 +3163,7 @@ function openGroupSettings(groupId) {
   const avEl = document.getElementById('groupSettingsAv');
   const groupAv = groupAvatarCache[groupId];
   if(groupAv) {
-    avEl.innerHTML = `<img src="${groupAv}" style="width:100%;height:100%;object-fit:cover;border-radius:22px">`;
+    avEl.innerHTML = `<img src="${groupAv}" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:22px">`;
     avEl.style.background = 'none';
     avEl.className = 'pu-av';
   } else {
@@ -2915,7 +3194,7 @@ function handleGroupAvatarSelect(input) {
     if(g) g.avatar_url = dataUrl;
 
     const avEl = document.getElementById('groupSettingsAv');
-    avEl.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:22px">`;
+    avEl.innerHTML = `<img src="${dataUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:22px">`;
     avEl.style.background = 'none';
     avEl.className = 'pu-av';
 
@@ -2943,7 +3222,7 @@ function renderGroupSettingsMemberList(group) {
     row.className = 'group-member-row';
     
     const avHtml = avImg
-      ? `<img src="${avImg}" style="width:40px;height:40px;border-radius:12px;object-fit:cover">`
+      ? `<img src="${avImg}" loading="lazy" style="width:40px;height:40px;border-radius:12px;object-fit:cover">`
       : `<div class="pu-av ${col(u)}" style="width:40px;height:40px">${ini(displayName)}</div>`;
       
     const kickHtml = (amIAdmin && u !== myUsername && u !== group.created_by)
@@ -3041,7 +3320,7 @@ function openAddMemberToGroup() {
       d.className = 'pu';
       d.onclick = () => addMemberToGroup(u);
       const avHtml = avImg
-        ? `<img src="${avImg}" style="width:46px;height:46px;border-radius:14px;object-fit:cover">`
+        ? `<img src="${avImg}" loading="lazy" style="width:46px;height:46px;border-radius:14px;object-fit:cover">`
         : `<div class="pu-av ${col(u)}">${ini(displayName)}</div>`;
       d.innerHTML = `${avHtml}<div><div class="pu-name">${esc(displayName)}</div><div class="pu-sub">${u}</div></div><span style="margin-left:auto;font-size:20px;color:var(--primary)">+</span>`;
       list.appendChild(d);
@@ -3080,7 +3359,7 @@ async function openDmSettings(targetUser) {
 
   const avEl = document.getElementById('dmSettingsAv');
   if(avImg) {
-    avEl.innerHTML = `<img src="${avImg}" style="width:100%; height:100%; border-radius:20px; object-fit:cover;">`;
+    avEl.innerHTML = `<img src="${avImg}" loading="lazy" style="width:100%; height:100%; border-radius:20px; object-fit:cover;">`;
     avEl.className = 'pu-av';
   } else {
     avEl.innerHTML = ini(displayName);
@@ -3197,9 +3476,9 @@ async function switchMediaTab(tabName) {
         const el = document.createElement('div');
         el.style.borderRadius = '8px'; el.style.overflow = 'hidden'; el.style.background = 'var(--bg)'; el.style.height = '70px';
         if(type === 'video') {
-          el.innerHTML = `<video src="${src}" style="width:100%; height:100%; object-fit:cover;" muted></video>`;
+          el.innerHTML = `<video loading="lazy" src="${src}" style="width:100%; height:100%; object-fit:cover;" muted></video>`;
         } else {
-          el.innerHTML = `<img src="${src}" style="width:100%; height:100%; object-fit:cover;">`;
+          el.innerHTML = `<img loading="lazy" src="${src}" style="width:100%; height:100%; object-fit:cover;">`;
         }
         grid.appendChild(el);
       }
