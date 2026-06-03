@@ -1270,6 +1270,7 @@ let currentKeyboardTheme = localStorage.getItem('yam-kbd') || 'standard';
 // WEBRTC STATE (Group & DM)
 let localStream = null;
 let peerConnections = {}; 
+let iceCandidatesQueue = {}; 
 let callSignalChannel = null;
 let activeCallData = null; 
 let isSpeakerMode = false;
@@ -1745,6 +1746,7 @@ function sendNotification(title,body){
   }
 }
 
+// ── PROFIL PANELİNİ DOLDURMA ──
 function fillProfilePanel(){
   const avEl = document.getElementById('profileAv');
   if(myAvatarUrl) {
@@ -3561,15 +3563,33 @@ function initCallSignaling() {
     .on('broadcast', { event: 'call-answer' }, async ({ payload }) => {
       if (payload.to === myUsername && activeCallData && activeCallData.rtcSessionId === payload.rtcSessionId) {
         document.getElementById('callStatusLabel').textContent = 'BAĞLANIYOR...';
-        if(peerConnections[payload.from]) {
-            await peerConnections[payload.from].setRemoteDescription(new RTCSessionDescription(payload.sdp));
+        const pc = peerConnections[payload.from];
+        if(pc) {
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+            // Tamponda biriken ICE adaylarını uzak açıklama yüklendikten sonra uygula
+            if (iceCandidatesQueue[payload.from]) {
+                for (const candidate of iceCandidatesQueue[payload.from]) {
+                    await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error(e));
+                }
+                iceCandidatesQueue[payload.from] = [];
+            }
         }
       }
     })
     .on('broadcast', { event: 'call-candidate' }, async ({ payload }) => {
       if (payload.to === myUsername && activeCallData && activeCallData.rtcSessionId === payload.rtcSessionId) {
-        if(peerConnections[payload.from]) {
-          await peerConnections[payload.from].addIceCandidate(new RTCIceCandidate(payload.candidate));
+        const pc = peerConnections[payload.from];
+        if (pc) {
+          // Uzak açıklama ayarlanmışsa adayı doğrudan ekle, ayarlanmamışsa tampon kuyruğa al
+          if (pc.remoteDescription && pc.remoteDescription.type) {
+            await pc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch(e => console.error(e));
+          } else {
+            if (!iceCandidatesQueue[payload.from]) iceCandidatesQueue[payload.from] = [];
+            iceCandidatesQueue[payload.from].push(payload.candidate);
+          }
+        } else {
+          if (!iceCandidatesQueue[payload.from]) iceCandidatesQueue[payload.from] = [];
+          iceCandidatesQueue[payload.from].push(payload.candidate);
         }
       }
     })
@@ -3695,6 +3715,15 @@ async function acceptCall() {
     const pc = setupPeerConnection(caller);
 
     await pc.setRemoteDescription(new RTCSessionDescription(activeCallData.sdp));
+    
+    // Uzak açıklama ayarlandıktan sonra, tamponda bekletilen ICE adaylarını uygula
+    if (iceCandidatesQueue[caller]) {
+        for (const candidate of iceCandidatesQueue[caller]) {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error(e));
+        }
+        iceCandidatesQueue[caller] = [];
+    }
+
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
 
@@ -3718,6 +3747,7 @@ async function acceptCall() {
 function setupPeerConnection(targetUser) {
   const pc = new RTCPeerConnection(rtcConfig);
   peerConnections[targetUser] = pc;
+  iceCandidatesQueue[targetUser] = [];
   
   if(localStream) {
     localStream.getTracks().forEach(track => {
@@ -3760,6 +3790,7 @@ function addRemoteVideo(targetUser, stream) {
         container.appendChild(vid);
     }
     vid.srcObject = stream;
+    vid.play().catch(e => console.log("Uzak video oynatılamadı:", e));
 }
 
 function removePeerConnection(targetUser) {
@@ -3804,6 +3835,7 @@ function terminateCallState() {
       peerConnections[k].close();
   });
   peerConnections = {};
+  iceCandidatesQueue = {};
   isSpeakerMode = false;
 
   const btn = document.getElementById('callSpeakerBtn');
@@ -3953,5 +3985,4 @@ if (document.readyState === 'loading') {
 
 </body>
 </html>
-
 
