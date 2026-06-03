@@ -2374,20 +2374,7 @@ async function sendMessage(customText = null){
   if(currentChatType==='dm')rawText=`🔒DM:${currentChat}🔒:${text}`;
   if(currentChatType==='group')rawText=`👥GRP:${currentChat}👥:${text}`;
   const{error}=await db.from('messages').insert({username:myUsername,text:rawText});
-  if(error){toast('Gönderilemedi: '+error.message);return;}
-  // Push bildirim
-  try {
-    let notifText=text;
-    if(notifText.includes('[MEDIA:'))notifText='📷 Medya';
-    else if(notifText.startsWith('[AUDIO]'))notifText='🎤 Sesli mesaj';
-    else if(notifText.includes('[LOCATION]'))notifText='📍 Konum';
-    if(notifText.length>100)notifText=notifText.slice(0,100)+'...';
-    if(currentChatType==='dm'){sendPushNotification(currentChat,myUsername,notifText);}
-    else if(currentChatType==='group'){
-      const grp=groupsList.find(g=>g.id===currentChat);
-      if(grp)grp.members.filter(m=>m!==myUsername).forEach(m=>sendPushNotification(m,myUsername+' ('+grp.name+')',notifText));
-    }
-  }catch(e){}
+  if(error)toast('Gönderilemedi: '+error.message);
 }
 
 // MESAJ YANITLAMA TETİKLEYİCİSİ
@@ -3999,15 +3986,48 @@ if (document.readyState === 'loading') {
 
 <script>
 const SUPABASE_NOTIFY_URL='https://npvtabfybgsamhnycmln.supabase.co/functions/v1/notify';
-async function sendPushNotification(recipient,sender,message){
-  try{
-    const sess=await db.auth.getSession();
-    await fetch(SUPABASE_NOTIFY_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(sess.data.session?.access_token||'')},
-      body:JSON.stringify({recipient,sender,message})
+
+// OneSignal Player ID'yi Supabase'e kaydet
+async function savePlayerIdToSupabase() {
+  try {
+    if(typeof OneSignal === 'undefined') return;
+    // Kısa bekle — OneSignal yüklensin
+    await new Promise(r => setTimeout(r, 2000));
+    const playerId = await OneSignal.User.PushSubscription.id;
+    if(!playerId || !myUser) return;
+    const {error} = await db.from('profiles').update({onesignal_player_id: playerId}).eq('id', myUser.id);
+    if(!error) console.log('Player ID kaydedildi:', playerId);
+  } catch(e) { console.log('savePlayerID err:', e); }
+}
+
+// Bildirim gönder — Player ID üzerinden
+async function sendPushNotification(recipientUsername, sender, message) {
+  try {
+    const sess = await db.auth.getSession();
+    const token = sess.data.session?.access_token || '';
+    await fetch(SUPABASE_NOTIFY_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({
+        recipient: recipientUsername,
+        sender,
+        message
+      })
     });
-  }catch(e){console.log('Push err:',e);}
+  } catch(e) { console.log('Push err:', e); }
+}
+
+// startApp çağrıldıktan sonra Player ID kaydet
+const _origStartApp = typeof startApp === 'function' ? startApp : null;
+if(_origStartApp) {
+  window.startApp = async function() {
+    await _origStartApp();
+    // Giriş yapılınca Player ID'yi kaydet
+    setTimeout(savePlayerIdToSupabase, 3000);
+  }
 }
 </script>
 
