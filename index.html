@@ -182,6 +182,11 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   font-size: 14px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   z-index: 5;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.msg-reaction:hover {
+  transform: scale(1.1);
 }
 .mrow.mine .msg-reaction {
   right: auto;
@@ -460,7 +465,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   border-top: 1px solid var(--border);
   z-index: 100;
   flex-shrink: 0;
-  overflow-y: auto;
+  overflow-y: hidden; 
   animation: bpop 0.2s cubic-bezier(.16,1,.3,1);
 }
 .emoji-drawer-header {
@@ -490,6 +495,8 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   grid-template-columns: repeat(7, 1fr);
   gap: 8px;
   padding: 12px;
+  overflow-y: auto;
+  flex: 1;
 }
 .emoji-drawer-item {
   font-size: 24px;
@@ -499,6 +506,20 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   transition: transform 0.1s;
 }
 .emoji-drawer-item:hover { transform: scale(1.25); }
+
+/* Özel GIF Arama Kutusu */
+.gif-search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  margin-bottom: 8px;
+  font-family: inherit;
+  font-size: 13px;
+}
 
 /* Özel Klavye Tasarımları */
 .custom-kb-grid {
@@ -1847,7 +1868,10 @@ function renderEmojiKeyboard() {
         <span onclick="switchEmojiTab('gif')" id="tab-gif" style="color:var(--text);">🎞️ GIF'ler</span>
     </div>
     <div id="emojiContainer" class="emoji-drawer-grid"></div>
-    <div id="gifContainer" class="emoji-drawer-grid" style="display:none; grid-template-columns: repeat(3, 1fr); padding:8px; gap:8px;"></div>
+    <div id="gifContainerWrap" style="display:none; flex-direction:column; flex:1; overflow:hidden; padding:8px;">
+        <input type="text" id="gifSearchInput" class="gif-search-input" placeholder="GIF Ara..." onkeyup="if(event.key==='Enter') searchGifs(this.value)">
+        <div id="gifContainer" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; overflow-y:auto; flex:1;"></div>
+    </div>
   `;
   
   const ems = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃','😺','😸','😻','😼','😽','🙀','😿','😾','👋','🤚','🖐️','✋','🖖','👌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟'];
@@ -1858,35 +1882,48 @@ function renderEmojiKeyboard() {
 function switchEmojiTab(tab) {
     if(tab === 'emoji') {
         document.getElementById('emojiContainer').style.display = 'grid';
-        document.getElementById('gifContainer').style.display = 'none';
+        document.getElementById('gifContainerWrap').style.display = 'none';
         document.getElementById('tab-emoji').style.color = 'var(--primary)';
         document.getElementById('tab-gif').style.color = 'var(--text)';
     } else {
         document.getElementById('emojiContainer').style.display = 'none';
-        document.getElementById('gifContainer').style.display = 'grid';
+        document.getElementById('gifContainerWrap').style.display = 'flex';
         document.getElementById('tab-emoji').style.color = 'var(--text)';
         document.getElementById('tab-gif').style.color = 'var(--primary)';
         loadGifs();
     }
 }
 
-function loadGifs() {
+async function loadGifs() {
+    searchGifs('trending');
+}
+
+async function searchGifs(query) {
     const container = document.getElementById('gifContainer');
-    if(container.innerHTML !== '') return;
-    
-    // Temel GIF havuzu simülasyonu
-    const gifs = [
-        'https://media.giphy.com/media/xT0xeJpnrWC4XWblWQ/giphy.gif',
-        'https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif',
-        'https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif',
-        'https://media.giphy.com/media/26AHONQ79FdWZhAI0/giphy.gif',
-        'https://media.giphy.com/media/13HgwGsXF0aiGY/giphy.gif',
-        'https://media.giphy.com/media/l41YkxvU8c7J7Bba0/giphy.gif',
-        'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif',
-        'https://media.giphy.com/media/Is1O1TWV0IGyMbLi21/giphy.gif',
-        'https://media.giphy.com/media/MDJ9IbxxvDUQM/giphy.gif'
-    ];
-    container.innerHTML = gifs.map(g => `<img loading="lazy" src="${g}" onclick="sendGifUrl('${g}')" style="width:100%; height:90px; object-fit:cover; border-radius:8px; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.1);">`).join('');
+    container.innerHTML = '<div style="grid-column: span 3; text-align:center; color:var(--muted); font-size:13px; padding:10px;">⏳ GIF\'ler Yükleniyor...</div>';
+    try {
+        const apiKey = "LIVDSRZULELA";
+        const locale = "tr_TR";
+        const limit = 24;
+
+        const endpoint = query === 'trending' || !query.trim() ?
+            `https://g.tenor.com/v1/trending?key=${apiKey}&limit=${limit}&locale=${locale}` :
+            `https://g.tenor.com/v1/search?q=${encodeURIComponent(query)}&key=${apiKey}&limit=${limit}&locale=${locale}`;
+            
+        const res = await fetch(endpoint);
+        const json = await res.json();
+        
+        if(json.results && json.results.length > 0) {
+            container.innerHTML = json.results.map(g => {
+                const url = g.media[0].nanogif.url;
+                return `<img loading="lazy" src="${url}" onclick="sendGifUrl('${url}')" style="width:100%; height:90px; object-fit:cover; border-radius:8px; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.1);">`;
+            }).join('');
+        } else {
+            container.innerHTML = '<div style="grid-column: span 3; text-align:center; color:var(--muted); font-size:13px;">GIF bulunamadı.</div>';
+        }
+    } catch (e) {
+        container.innerHTML = '<div style="grid-column: span 3; text-align:center; color:var(--danger); font-size:13px;">Bağlantı hatası oluştu. Lütfen tekrar deneyiniz.</div>';
+    }
 }
 
 function sendGifUrl(url) {
@@ -2167,7 +2204,6 @@ function subscribeMessages(){
       if(show){
           const row = makeRow(m,parsed.cleanText,parsed.reaction);
           document.getElementById('messages').appendChild(row);
-          // requestAnimationFrame ile smooth scroll optimize edildi
           window.requestAnimationFrame(() => scrollBot());
       }
       if(m.username!==myUsername){
@@ -2232,7 +2268,7 @@ function broadcastTyping(active){
   presenceChannel?.send({type:'broadcast',event:'typing',payload:{username:myUsername,typing:active}});
 }
 
-// İFADE (REACTION) BIRAKMA DENETİMLERİ
+// İFADE (REACTION) KONTROLLERİ
 function showReactionPicker(msgId, bubbleEl) {
   currentReactionMsgId = msgId;
   const picker = document.getElementById('reactionPicker');
@@ -2247,15 +2283,28 @@ function closeReactionPicker() {
   currentReactionMsgId = null;
 }
 
-async function addReaction(emoji) {
-  if(!currentReactionMsgId) return;
-  const msg = loadedMessagesList.find(m => m.id === currentReactionMsgId);
+async function addReactionToMsg(msgId, emoji) {
+  const msg = loadedMessagesList.find(m => m.id === msgId);
   if(msg) {
       const newText = msg.text.replace(/\[RX:.*?\]/g, '') + `[RX:${emoji}]`;
-      const { error } = await db.from('messages').update({text: newText}).eq('id', currentReactionMsgId);
+      const { error } = await db.from('messages').update({text: newText}).eq('id', msgId);
       if(error) toast('İfade eklenemedi.');
   }
+}
+
+async function addReaction(emoji) {
+  if(!currentReactionMsgId) return;
+  await addReactionToMsg(currentReactionMsgId, emoji);
   closeReactionPicker();
+}
+
+async function removeReaction(msgId) {
+  const msg = loadedMessagesList.find(x => x.id === msgId);
+  if(msg) {
+      const newText = msg.text.replace(/\[RX:.*?\]/g, '');
+      const { error } = await db.from('messages').update({text: newText}).eq('id', msgId);
+      if(error) toast('İfade kaldırılamadı.');
+  }
 }
 
 // YANITLAMA VE DÜZENLEME DESTEKLİ MESAJ GÖNDERİMİ
@@ -2509,7 +2558,7 @@ function makeRow(m, cleanText, reaction) {
       locationHtml = `<div class="btext"><a href="https://www.google.com/maps?q=${coords}" target="_blank" style="color:var(--danger);text-decoration:underline;display:flex;align-items:center;gap:4px;">📡 Canlı Konum</a></div>`;
   }
   
-  // Medya (Fotoğraf/Video) Formatı Çözümleme
+  // Medya (Fotoğraf/Video/GIF) Formatı Çözümleme
   let mediaInternalHtml = null;
   const directMediaMatch = cleanText.match(/^\[MEDIA:(image|video)\](.*?)\[\/MEDIA\]$/);
   if (directMediaMatch) {
@@ -2590,7 +2639,7 @@ function makeRow(m, cleanText, reaction) {
   }
   
   if (reaction) {
-      finalBodyHtml += `<div class="msg-reaction">${esc(reaction)}</div>`;
+      finalBodyHtml += `<div class="msg-reaction" onclick="event.stopPropagation(); removeReaction('${m.id}')">${esc(reaction)}</div>`;
   }
 
   row.innerHTML=`<div class="bubble">
@@ -2606,9 +2655,39 @@ function makeRow(m, cleanText, reaction) {
   let isLongPress = false;
   let lpTimer = null;
   let dragThresholdMet = false;
-  let isVerticalScroll = false; // Dikey kaydırma kilidi eklendi
+  let isVerticalScroll = false; 
   
   const bubble = row.querySelector('.bubble');
+  const isMobileDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  let lastClickTime = 0;
+
+  // Cihaz Bazlı Tıklama Dinleyicisi
+  row.addEventListener('click', (e) => {
+      if (e.target.closest('.bdel') || e.target.closest('.msg-reaction') || e.target.closest('img') || e.target.closest('video') || e.target.closest('a') || e.target.closest('button')) {
+          return; 
+      }
+      
+      if (!isMobileDevice) {
+          triggerReply(m, cleanText);
+      }
+  });
+
+  // Mobil Cihazlar İçin Çift Tıklama İle Kalp Bırakma (Instagram Stili)
+  if(isMobileDevice) {
+      row.addEventListener('touchstart', (e) => {
+          if (e.target.closest('.bdel') || e.target.closest('.msg-reaction') || e.target.closest('img') || e.target.closest('video') || e.target.closest('a') || e.target.closest('button')) {
+              return; 
+          }
+          const currentTime = Date.now();
+          if (currentTime - lastClickTime < 300) {
+              addReactionToMsg(m.id, '❤️');
+              lastClickTime = 0; 
+              e.preventDefault(); 
+          } else {
+              lastClickTime = currentTime;
+          }
+      }, {passive: false}); 
+  }
 
   const onStart = (clientX, clientY) => {
     startX = clientX; startY = clientY;
@@ -2632,7 +2711,6 @@ function makeRow(m, cleanText, reaction) {
     const diffX = currentX - startX;
     const diffY = clientY - startY;
     
-    // Y eksenindeki hareket X'ten büyükse bu bir dikey kaydırmadır (scroll). Yanıtlamayı iptal et.
     if (!dragThresholdMet) {
         if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 5) {
             isVerticalScroll = true;
@@ -2681,7 +2759,7 @@ function makeRow(m, cleanText, reaction) {
     startX = 0; currentX = 0;
   };
 
-  // Dokunmatik Cihazlar (Mobil)
+  // Dokunmatik Cihazlar (Mobil) Sürükleme
   row.addEventListener('touchstart', e => onStart(e.touches[0].clientX, e.touches[0].clientY), {passive: true});
   row.addEventListener('touchmove', e => onMove(e.touches[0].clientX, e.touches[0].clientY), {passive: true});
   row.addEventListener('touchend', onEnd);
@@ -2691,11 +2769,6 @@ function makeRow(m, cleanText, reaction) {
   row.addEventListener('mousedown', e => onStart(e.clientX, e.clientY));
   window.addEventListener('mousemove', e => { if (isDragging) onMove(e.clientX, e.clientY); });
   window.addEventListener('mouseup', () => { if (isDragging) onEnd(); });
-
-  // Sadece Çift Tıklama İle Yanıtlama (Masaüstü için de ek güvenlik)
-  row.addEventListener('dblclick', () => {
-      triggerReply(m, cleanText);
-  });
 
   return row;
 }
