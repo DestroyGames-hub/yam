@@ -2374,7 +2374,20 @@ async function sendMessage(customText = null){
   if(currentChatType==='dm')rawText=`🔒DM:${currentChat}🔒:${text}`;
   if(currentChatType==='group')rawText=`👥GRP:${currentChat}👥:${text}`;
   const{error}=await db.from('messages').insert({username:myUsername,text:rawText});
-  if(error)toast('Gönderilemedi: '+error.message);
+  if(error){toast('Gönderilemedi: '+error.message);return;}
+  // Push bildirim
+  try {
+    let notifText=text;
+    if(notifText.includes('[MEDIA:'))notifText='📷 Medya';
+    else if(notifText.startsWith('[AUDIO]'))notifText='🎤 Sesli mesaj';
+    else if(notifText.includes('[LOCATION]'))notifText='📍 Konum';
+    if(notifText.length>100)notifText=notifText.slice(0,100)+'...';
+    if(currentChatType==='dm'){sendPushNotification(currentChat,myUsername,notifText);}
+    else if(currentChatType==='group'){
+      const grp=groupsList.find(g=>g.id===currentChat);
+      if(grp)grp.members.filter(m=>m!==myUsername).forEach(m=>sendPushNotification(m,myUsername+' ('+grp.name+')',notifText));
+    }
+  }catch(e){}
 }
 
 // MESAJ YANITLAMA TETİKLEYİCİSİ
@@ -3980,6 +3993,21 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initOneSignal);
 } else {
   initOneSignal();
+}
+</script>
+
+
+<script>
+const SUPABASE_NOTIFY_URL='https://npvtabfybgsamhnycmln.supabase.co/functions/v1/notify';
+async function sendPushNotification(recipient,sender,message){
+  try{
+    const sess=await db.auth.getSession();
+    await fetch(SUPABASE_NOTIFY_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(sess.data.session?.access_token||'')},
+      body:JSON.stringify({recipient,sender,message})
+    });
+  }catch(e){console.log('Push err:',e);}
 }
 </script>
 
