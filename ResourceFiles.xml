@@ -1,0 +1,208 @@
+<!-- ===== res/values/strings.xml ===== -->
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">YAM Chat</string>
+    <string name="app_description">YAM - Gerçek zamanlı mesajlaşma uygulaması</string>
+    
+    <!-- Bildirimler -->
+    <string name="notification_channel_name">YAM Chat Bildirimleri</string>
+    <string name="notification_channel_description">YAM Chat mesaj ve güncelleme bildirimleri</string>
+    <string name="notification_title">YAM Chat</string>
+    <string name="notification_message">Mesajları alma hazır</string>
+    <string name="new_message">Yeni mesaj</string>
+    
+    <!-- Arka Plan Hizmetleri -->
+    <string name="service_running">YAM Chat arka planda çalışıyor</string>
+    <string name="sync_in_progress">Mesajlar senkronize ediliyor...</string>
+    <string name="connection_restored">İnternet bağlantısı geri geldi</string>
+    <string name="connection_lost">İnternet bağlantısı kesildi</string>
+    
+    <!-- Hata Mesajları -->
+    <string name="error_connection">Bağlantı hatası</string>
+    <string name="error_sync">Senkronizasyon başarısız</string>
+    <string name="error_permission">İzin reddedildi</string>
+    <string name="retry">Tekrar Dene</string>
+    
+    <!-- İzinler -->
+    <string name="permission_notification">Bildirimleri almak için izin gerekli</string>
+    <string name="permission_boot">Cihaz açılışında servisi başlatmak için izin gerekli</string>
+</resources>
+
+<!-- ===== res/values/colors.xml ===== -->
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema Renkleri -->
+    <color name="primary">#6366f1</color>
+    <color name="primary_dark">#4f46e5</color>
+    <color name="primary_light">#e0e7ff</color>
+    
+    <!-- Arka Plan -->
+    <color name="background">#f3f4f6</color>
+    <color name="surface">#ffffff</color>
+    <color name="surface_dark">#1e293b</color>
+    
+    <!-- Metin -->
+    <color name="text_primary">#1f2937</color>
+    <color name="text_secondary">#6b7280</color>
+    <color name="text_dark">#f8fafc</color>
+    
+    <!-- Kenarlar -->
+    <color name="border">#e5e7eb</color>
+    <color name="border_dark">#334155</color>
+    
+    <!-- Durum Renkleri -->
+    <color name="success">#10b981</color>
+    <color name="warning">#f59e0b</color>
+    <color name="error">#ef4444</color>
+    <color name="info">#3b82f6</color>
+    
+    <!-- Gradient -->
+    <color name="gradient_start">#6366f1</color>
+    <color name="gradient_end">#a855f7</color>
+</resources>
+
+<!-- ===== res/values/styles.xml ===== -->
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light Theme -->
+    <style name="Theme.YAMChat" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Status Bar -->
+        <item name="android:statusBarColor">@color/surface</item>
+        <item name="android:windowLightStatusBar">true</item>
+        
+        <!-- Navigation Bar -->
+        <item name="android:navigationBarColor">@color/surface</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        
+        <!-- Renkler -->
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryDark">@color/primary_dark</item>
+        <item name="colorAccent">@color/primary</item>
+        
+        <!-- Arka Plan -->
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        
+        <!-- Yazı Tipleri -->
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
+    </style>
+    
+    <!-- Dark Theme -->
+    <style name="Theme.YAMChat.Dark" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:statusBarColor">@color/surface_dark</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">@color/surface_dark</item>
+        <item name="android:windowBackground">@color/surface_dark</item>
+    </style>
+    
+    <!-- Buton Stilleri -->
+    <style name="Widget.YAMChat.Button" parent="Widget.AppCompat.Button.Colored">
+        <item name="android:textColor">@color/surface</item>
+        <item name="android:backgroundTint">@color/primary</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:padding">12dp</item>
+    </style>
+    
+    <!-- EditText Stilleri -->
+    <style name="Widget.YAMChat.EditText" parent="Widget.AppCompat.EditText">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorHint">@color/text_secondary</item>
+        <item name="android:backgroundTint">@color/primary</item>
+        <item name="android:padding">12dp</item>
+    </style>
+    
+    <!-- Bildirim Stilleri -->
+    <style name="Widget.YAMChat.NotificationText">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+</resources>
+
+<!-- ===== res/values/dimens.xml ===== -->
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Padding/Margin -->
+    <dimen name="padding_xsmall">4dp</dimen>
+    <dimen name="padding_small">8dp</dimen>
+    <dimen name="padding_medium">16dp</dimen>
+    <dimen name="padding_large">24dp</dimen>
+    <dimen name="padding_xlarge">32dp</dimen>
+    
+    <!-- Köşe Yarıçapları -->
+    <dimen name="radius_small">4dp</dimen>
+    <dimen name="radius_medium">8dp</dimen>
+    <dimen name="radius_large">16dp</dimen>
+    <dimen name="radius_xlarge">24dp</dimen>
+    
+    <!-- İkon Boyutları -->
+    <dimen name="icon_size_small">16dp</dimen>
+    <dimen name="icon_size_medium">24dp</dimen>
+    <dimen name="icon_size_large">32dp</dimen>
+    
+    <!-- Metin Boyutları -->
+    <dimen name="text_size_small">12sp</dimen>
+    <dimen name="text_size_body">14sp</dimen>
+    <dimen name="text_size_subtitle">16sp</dimen>
+    <dimen name="text_size_title">20sp</dimen>
+    <dimen name="text_size_headline">24sp</dimen>
+    
+    <!-- Bildirim -->
+    <dimen name="notification_icon_size">48dp</dimen>
+    <dimen name="notification_large_icon_size">256dp</dimen>
+</resources>
+
+<!-- ===== AndroidManifest.xml Tema Referansı ===== -->
+<!--
+    styles.xml'de tanımlanan temaları AndroidManifest.xml'de kullanmak için:
+
+    <application
+        ...
+        android:theme="@style/Theme.YAMChat"
+        ...
+    >
+        <activity
+            android:name=".MainActivity"
+            android:theme="@style/Theme.YAMChat"
+        >
+        </activity>
+    </application>
+
+    Night Mode (Karanlık Tema) için:
+    res/values-night/styles.xml oluştur ve
+    Theme.YAMChat.Dark stilini kullan.
+-->
+
+<!-- ===== res/values-night/colors.xml ===== -->
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Koyu Tema Renkleri -->
+    <color name="primary">#818cf8</color>
+    <color name="primary_dark">#6366f1</color>
+    <color name="primary_light">#4f46e5</color>
+    
+    <color name="background">#0f172a</color>
+    <color name="surface">#1e293b</color>
+    
+    <color name="text_primary">#f8fafc</color>
+    <color name="text_secondary">#94a3b8</color>
+    
+    <color name="border">#334155</color>
+</resources>
+
+<!-- ===== res/values-night/styles.xml ===== -->
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.YAMChat" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:statusBarColor">@color/surface</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">@color/surface</item>
+        <item name="android:windowBackground">@color/background</item>
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryDark">@color/primary_dark</item>
+        <item name="colorAccent">@color/primary</item>
+    </style>
+</resources>
