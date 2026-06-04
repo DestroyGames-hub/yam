@@ -785,6 +785,165 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 #reactionPicker span:hover { 
   transform: scale(1.2); 
 }
+
+/* ── MESAJ CONTEXT MENU ── */
+.msg-ctx-overlay {
+  position: fixed; inset: 0; z-index: 450; display: none;
+  background: rgba(0,0,0,0.4); backdrop-filter: blur(3px);
+  align-items: flex-end; justify-content: center;
+}
+.msg-ctx-overlay.open { display: flex; }
+.msg-ctx-sheet {
+  background: var(--surface); border-radius: 24px 24px 0 0;
+  padding: 12px 0 32px; width: 100%; max-width: 500px;
+}
+.msg-ctx-preview {
+  padding: 12px 20px 16px; border-bottom: 1px solid var(--border);
+  font-size: 13px; color: var(--muted); max-height: 60px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: flex; align-items: center; gap: 10px;
+}
+.msg-ctx-preview-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg-ctx-reactions {
+  display: flex; gap: 6px; padding: 14px 20px;
+  border-bottom: 1px solid var(--border); overflow-x: auto;
+}
+.msg-ctx-reactions::-webkit-scrollbar { display: none; }
+.ctx-reaction-btn {
+  width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--border);
+  background: var(--input-bg); font-size: 22px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .15s; flex-shrink: 0;
+}
+.ctx-reaction-btn:hover { transform: scale(1.2); border-color: var(--primary); }
+.ctx-reaction-btn.selected { border-color: var(--primary); background: var(--primary-light); }
+.msg-ctx-actions { padding: 8px 0; }
+.msg-ctx-action {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 22px; cursor: pointer; transition: background .15s;
+  border: none; background: none; width: 100%; text-align: left;
+}
+.msg-ctx-action:hover { background: var(--input-bg); }
+.msg-ctx-action-icon { font-size: 20px; width: 28px; text-align: center; }
+.msg-ctx-action-label { font-size: 15px; font-weight: 600; color: var(--text); }
+.msg-ctx-action.danger .msg-ctx-action-label { color: var(--danger); }
+
+/* ── İLET MODAL ── */
+.forward-overlay {
+  position: fixed; inset: 0; z-index: 500; display: none;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+  align-items: flex-end; justify-content: center;
+}
+.forward-overlay.open { display: flex; }
+.forward-sheet {
+  background: var(--surface); border-radius: 24px 24px 0 0;
+  padding: 20px 0 32px; width: 100%; max-width: 500px;
+  max-height: 80vh; display: flex; flex-direction: column;
+}
+.forward-title {
+  font-size: 17px; font-weight: 700; color: var(--text);
+  padding: 0 20px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.forward-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+.forward-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 20px; cursor: pointer; transition: background .15s;
+}
+.forward-item:hover { background: var(--input-bg); }
+.forward-item-check {
+  width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 13px; transition: all .15s;
+}
+.forward-item.selected .forward-item-check {
+  background: var(--primary); border-color: var(--primary); color: #fff;
+}
+.forward-send-btn {
+  margin: 16px 20px 0; background: var(--gradient); border: none;
+  border-radius: 14px; padding: 14px; color: #fff; font-family: inherit;
+  font-size: 15px; font-weight: 700; cursor: pointer; flex-shrink: 0;
+}
+
+/* ── DÜZENLE MODAL ── */
+.edit-overlay {
+  position: fixed; inset: 0; z-index: 500; display: none;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+  align-items: flex-end; justify-content: center;
+}
+.edit-overlay.open { display: flex; }
+.edit-sheet {
+  background: var(--surface); border-radius: 24px 24px 0 0;
+  padding: 20px; width: 100%; max-width: 500px;
+}
+.edit-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 14px; }
+.edit-inp {
+  width: 100%; border: 2px solid var(--border); border-radius: 12px;
+  padding: 12px 14px; font-family: inherit; font-size: 15px; color: var(--text);
+  outline: none; background: var(--input-bg); resize: none; min-height: 80px;
+  margin-bottom: 12px;
+}
+.edit-inp:focus { border-color: var(--primary); }
+.edit-actions { display: flex; gap: 10px; }
+.edit-cancel-btn {
+  flex: 1; background: var(--input-bg); border: none; border-radius: 12px;
+  padding: 13px; color: var(--text); font-family: inherit; font-size: 14px;
+  font-weight: 600; cursor: pointer;
+}
+.edit-save-btn {
+  flex: 2; background: var(--gradient); border: none; border-radius: 12px;
+  padding: 13px; color: #fff; font-family: inherit; font-size: 14px;
+  font-weight: 700; cursor: pointer;
+}
+
+/* İletildi etiketi */
+.forwarded-label {
+  font-size: 12px; color: var(--muted); display: flex; align-items: center;
+  gap: 4px; margin-bottom: 5px; font-weight: 600;
+  border-bottom: 1px solid rgba(128,128,128,0.15); padding-bottom: 5px;
+}
+.mrow.mine .forwarded-label { color: rgba(255,255,255,0.75); }
+
+
+/* REACTION DETAIL MODAL */
+.rx-detail-overlay {
+  position: fixed; inset: 0; z-index: 600;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+  display: none; align-items: flex-end; justify-content: center;
+}
+.rx-detail-overlay.open { display: flex; }
+.rx-detail-sheet {
+  background: var(--surface); border-radius: 24px 24px 0 0;
+  width: 100%; max-width: 500px; max-height: 70vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.rx-detail-tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  overflow-x: auto; flex-shrink: 0; padding: 4px 12px 0;
+}
+.rx-detail-tabs::-webkit-scrollbar { display: none; }
+.rx-tab {
+  padding: 12px 16px; font-size: 15px; font-weight: 600;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  white-space: nowrap; color: var(--muted); background: none; border-top: none;
+  border-left: none; border-right: none; font-family: inherit;
+  transition: color .2s;
+}
+.rx-tab.active { color: var(--text); border-bottom-color: var(--primary); }
+.rx-detail-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+.rx-detail-list::-webkit-scrollbar { width: 3px; }
+.rx-detail-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.rx-detail-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 20px;
+}
+.rx-detail-emoji { font-size: 22px; flex-shrink: 0; }
+.rx-detail-name { font-size: 15px; font-weight: 600; color: var(--text); flex: 1; }
+.rx-detail-remove {
+  background: var(--input-bg); border: none; border-radius: 20px;
+  padding: 6px 14px; font-size: 13px; color: var(--danger);
+  font-weight: 600; cursor: pointer; font-family: inherit;
+}
+
 </style>
 </head>
 <body>
@@ -2070,7 +2229,7 @@ function parseMessage(m){
 
   const rxMatch = cleanText.match(/\[RX:(.*?)\]$/);
   if(rxMatch) {
-      reaction = rxMatch[1];
+      reaction = rxMatch[1]; // format: "emoji:user,emoji:user"
       cleanText = cleanText.replace(/\[RX:.*?\]$/, '');
   }
 
@@ -2272,12 +2431,8 @@ function broadcastTyping(active){
 
 // İFADE (REACTION) KONTROLLERİ
 function showReactionPicker(msgId, bubbleEl) {
-  currentReactionMsgId = msgId;
-  const picker = document.getElementById('reactionPicker');
-  const rect = bubbleEl.getBoundingClientRect();
-  picker.style.top = (rect.top - 10) + 'px';
-  picker.style.left = Math.max(10, rect.left + (rect.width / 2) - 80) + 'px';
-  picker.style.display = 'flex';
+  // Yeni context menu'yü aç
+  showMsgContextMenu(msgId);
 }
 
 function closeReactionPicker() {
@@ -2288,7 +2443,20 @@ function closeReactionPicker() {
 async function addReactionToMsg(msgId, emoji) {
   const msg = loadedMessagesList.find(m => m.id === msgId);
   if(msg) {
-      const newText = msg.text.replace(/\[RX:.*?\]/g, '') + `[RX:${emoji}]`;
+      const baseText = msg.text.replace(/\[RX:.*?\]/g, '');
+      const currentRxMatch = msg.text.match(/\[RX:(.*?)\]/);
+      const currentRxStr = currentRxMatch ? currentRxMatch[1] : '';
+      const rxGroups = parseReactions(currentRxStr);
+      // Önce bu kullanıcının eski ifadesini kaldır
+      for (const em in rxGroups) {
+        rxGroups[em] = rxGroups[em].filter(u => u !== myUsername);
+        if (!rxGroups[em].length) delete rxGroups[em];
+      }
+      // Yeni ifadeyi ekle
+      if (!rxGroups[emoji]) rxGroups[emoji] = [];
+      if (!rxGroups[emoji].includes(myUsername)) rxGroups[emoji].push(myUsername);
+      const newRxStr = serializeReactions(rxGroups);
+      const newText = baseText + (newRxStr ? `[RX:${newRxStr}]` : '');
       const { error } = await db.from('messages').update({text: newText}).eq('id', msgId);
       if(error) toast('İfade eklenemedi.');
   }
@@ -2303,7 +2471,17 @@ async function addReaction(emoji) {
 async function removeReaction(msgId) {
   const msg = loadedMessagesList.find(x => x.id === msgId);
   if(msg) {
-      const newText = msg.text.replace(/\[RX:.*?\]/g, '');
+      const baseText = msg.text.replace(/\[RX:.*?\]/g, '');
+      const currentRxMatch = msg.text.match(/\[RX:(.*?)\]/);
+      const currentRxStr = currentRxMatch ? currentRxMatch[1] : '';
+      const rxGroups = parseReactions(currentRxStr);
+      // Sadece bu kullanıcının ifadesini kaldır
+      for (const em in rxGroups) {
+        rxGroups[em] = rxGroups[em].filter(u => u !== myUsername);
+        if (!rxGroups[em].length) delete rxGroups[em];
+      }
+      const newRxStr = serializeReactions(rxGroups);
+      const newText = baseText + (newRxStr ? `[RX:${newRxStr}]` : '');
       const { error } = await db.from('messages').update({text: newText}).eq('id', msgId);
       if(error) toast('İfade kaldırılamadı.');
   }
@@ -2537,6 +2715,10 @@ function playVoiceMessage(btn, audioSrc) {
 }
 
 function makeRow(m, cleanText, reaction) {
+  // Benden silinmiş mesajları gösterme
+  const deletedKey = 'yam_deleted_' + myUsername;
+  const deletedList = JSON.parse(localStorage.getItem(deletedKey) || '[]');
+  if (deletedList.includes(m.id)) return document.createElement('div');
   const mine=m.username===myUsername;
   const row=document.createElement('div');
   row.className='mrow'+(mine?' mine':'');
@@ -2544,6 +2726,11 @@ function makeRow(m, cleanText, reaction) {
   const showDel=true; 
   const displayName = getDisplayName(m.username);
   
+  const isForwarded = cleanText && cleanText.startsWith('📤|İletildi|');
+  const isEdited = (m.text||'').includes('[EDITED]');
+  const displayText = isForwarded ? cleanText.replace('📤|İletildi|', '') : cleanText;
+  const forwardedLabel = isForwarded ? `<div class="forwarded-label"><span style="font-size:13px">↪</span> İletildi</div>` : '';
+  const editedLabel = isEdited ? ' <span style="font-size:10px;opacity:0.7">✏️</span>' : '';
   let finalBodyHtml = '';
   
   const replyMatch = cleanText.match(/^\[STORY_REPLY\]([\s\S]*?)\[\/STORY_REPLY\]([\s\S]*)$/);
@@ -2637,11 +2824,19 @@ function makeRow(m, cleanText, reaction) {
   } else if (mediaInternalHtml) {
       finalBodyHtml = mediaInternalHtml;
   } else {
-    finalBodyHtml = `<div class="btext">${esc(cleanText||m.text)}</div>`;
+    const dt = isForwarded ? (cleanText||m.text||'').replace('[FWD]','') : (cleanText||m.text||'');
+    finalBodyHtml = (forwardedLabel||'') + `<div class="btext">${esc(dt)}</div>`;
   }
   
   if (reaction) {
-      finalBodyHtml += `<div class="msg-reaction" onclick="event.stopPropagation(); removeReaction('${m.id}')">${esc(reaction)}</div>`;
+      // reaction format: "emoji:user,emoji:user" veya eski format "emoji"
+      const rxGroups = parseReactions(reaction);
+      const rxSummary = Object.entries(rxGroups).map(([em, users]) =>
+        `<span class="rx-chip" onclick="event.stopPropagation(); openRxDetail('${m.id}')" style="display:inline-flex;align-items:center;gap:3px;background:${users.includes(myUsername)?'var(--primary-light)':'var(--input-bg)'};border:1.5px solid ${users.includes(myUsername)?'var(--primary)':'var(--border)'};border-radius:20px;padding:3px 8px;margin:2px 2px 0;cursor:pointer;font-size:13px">
+          <span>${em}</span><span style="font-size:12px;font-weight:700;color:var(--primary)">${users.length}</span>
+        </span>`
+      ).join('');
+      if (rxSummary) finalBodyHtml += `<div style="margin-top:4px">${rxSummary}</div>`;
   }
 
   row.innerHTML=`<div class="bubble">
@@ -3933,6 +4128,222 @@ function toast(msg){
 </script>
 
 <script>
+
+// ── MESAJ CONTEXT MENU ──
+let ctxMsgId = null, ctxMsgMine = false, ctxMsgText = '', ctxMsgTime = null;
+const CTX_REACTIONS = ['❤️','😂','😮','😢','😡','👍','👎','🔥'];
+let forwardText = '', forwardSelectedChats = new Set();
+let editMsgId = null;
+
+function showMsgContextMenu(msgId) {
+  const msg = loadedMessagesList.find(m => m.id === msgId);
+  if (!msg) return;
+  ctxMsgId = msgId;
+  ctxMsgMine = msg.username === myUsername;
+  const parsed = parseMessage(msg);
+  ctxMsgText = parsed.cleanText || msg.text || '';
+  ctxMsgTime = new Date(msg.created_at);
+
+  // Preview
+  let previewText = ctxMsgText;
+  if (previewText.startsWith('[AUDIO]')) previewText = '🎤 Sesli mesaj';
+  if (previewText.includes('[MEDIA:')) previewText = '📷 Medya';
+  document.getElementById('msgCtxPreview').innerHTML =
+    `<span style="font-size:18px">${ctxMsgMine ? '👤' : '💬'}</span>
+     <div class="msg-ctx-preview-text">${esc(previewText)}</div>`;
+
+  // Reactions
+  const rxDiv = document.getElementById('msgCtxReactions');
+  rxDiv.innerHTML = '';
+  const currentRxStr = parsed.reaction || '';
+  const rxGroups = parseReactions(currentRxStr);
+  const myCurrentRx = Object.entries(rxGroups).find(([em, users]) => users.includes(myUsername))?.[0] || '';
+  CTX_REACTIONS.forEach(em => {
+    const btn = document.createElement('button');
+    btn.className = 'ctx-reaction-btn' + (myCurrentRx === em ? ' selected' : '');
+    btn.textContent = em;
+    const count = rxGroups[em]?.length || 0;
+    if (count > 0) {
+      const badge = document.createElement('span');
+      badge.style.cssText = 'position:absolute;top:-4px;right:-4px;background:var(--primary);color:#fff;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center';
+      badge.textContent = count;
+      btn.style.position = 'relative';
+      btn.appendChild(badge);
+    }
+    btn.onclick = () => {
+      if (myCurrentRx === em) removeReaction(msgId);
+      else addReactionToMsg(msgId, em);
+      closeMsgCtx();
+    };
+    rxDiv.appendChild(btn);
+  });
+
+  // Actions
+  const actDiv = document.getElementById('msgCtxActions');
+  actDiv.innerHTML = '';
+  const actions = [
+    { icon: '↩️', label: 'Yanıtla', fn: () => { triggerReply(msg, ctxMsgText); closeMsgCtx(); } },
+    { icon: '📤', label: 'İlet', fn: () => { openForward(ctxMsgText); closeMsgCtx(); } },
+    { icon: '📋', label: 'Kopyala', fn: () => { navigator.clipboard?.writeText(ctxMsgText); toast('Kopyalandı ✓'); closeMsgCtx(); } },
+  ];
+
+  // Düzenle — sadece kendi mesajı, 30 dk içinde, metin mesajıysa
+  if (ctxMsgMine && !ctxMsgText.startsWith('[AUDIO]') && !ctxMsgText.includes('[MEDIA:')) {
+    const diffMin = (Date.now() - ctxMsgTime) / 60000;
+    if (diffMin <= 30) {
+      actions.push({ icon: '✏️', label: 'Düzenle', fn: () => { openEdit(msgId, ctxMsgText); closeMsgCtx(); } });
+    }
+  }
+
+  // Sil seçenekleri
+  if (ctxMsgMine || myUsername === 'admin') {
+    actions.push({ icon: '🗑', label: 'Herkesten Sil', fn: () => { closeMsgCtx(); deleteForAll(msgId); }, danger: true });
+  }
+  actions.push({ icon: '🚮', label: 'Benden Sil', fn: () => { closeMsgCtx(); deleteForMe(msgId); }, danger: true });
+
+  actions.forEach(a => {
+    const btn = document.createElement('button');
+    btn.className = 'msg-ctx-action' + (a.danger ? ' danger' : '');
+    btn.innerHTML = `<span class="msg-ctx-action-icon">${a.icon}</span><span class="msg-ctx-action-label">${a.label}</span>`;
+    btn.onclick = a.fn;
+    actDiv.appendChild(btn);
+  });
+
+  document.getElementById('msgCtxOverlay').classList.add('open');
+  if (navigator.vibrate) navigator.vibrate(30);
+}
+
+function closeMsgCtx() {
+  document.getElementById('msgCtxOverlay').classList.remove('open');
+  ctxMsgId = null;
+}
+
+// ── İLET ──
+function openForward(text) {
+  forwardText = text;
+  forwardSelectedChats.clear();
+  const list = document.getElementById('forwardList');
+  list.innerHTML = '';
+
+  // DM listesi
+  const users = [];
+  Object.values(onlineUsers).forEach(u => { if(u.username !== myUsername) users.push({id: u.username, type: 'dm', name: u.username}); });
+  [...dmHistory].forEach(u => { if(u !== myUsername && !onlineUsers[u]) users.push({id: u, type: 'dm', name: u}); });
+  groupsList.filter(g => g.members.includes(myUsername)).forEach(g => users.push({id: g.id, type: 'group', name: '# ' + g.name}));
+
+  if (!users.length) {
+    list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted)">Henüz kimse yok</div>';
+  }
+
+  [...new Set(users.map(u => u.id))].forEach(uid => {
+    const u = users.find(x => x.id === uid);
+    const item = document.createElement('div');
+    item.className = 'forward-item';
+    item.id = 'fwd-' + uid;
+    const isGroup = u.type === 'group';
+    item.innerHTML = `
+      <div class="pu-av ${isGroup ? 'av4' : col(u.name)}" style="width:44px;height:44px;flex-shrink:0">${isGroup ? '#' : ini(u.name)}</div>
+      <div style="flex:1"><div style="font-size:15px;font-weight:600;color:var(--text)">${esc(u.name)}</div></div>
+      <div class="forward-item-check" id="fwdchk-${uid}"></div>`;
+    item.onclick = () => {
+      if (forwardSelectedChats.has(uid)) {
+        forwardSelectedChats.delete(uid);
+        item.classList.remove('selected');
+        document.getElementById('fwdchk-'+uid).textContent = '';
+      } else {
+        forwardSelectedChats.add(uid);
+        item.classList.add('selected');
+        document.getElementById('fwdchk-'+uid).textContent = '✓';
+      }
+    };
+    list.appendChild(item);
+  });
+
+  document.getElementById('forwardOverlay').classList.add('open');
+}
+
+function closeForward() {
+  document.getElementById('forwardOverlay').classList.remove('open');
+  forwardSelectedChats.clear();
+}
+
+async function sendForward() {
+  if (!forwardSelectedChats.size) { toast('En az 1 kişi seç!'); return; }
+  const fwdText = '*İletildi‎*' + forwardText;
+  for (const uid of forwardSelectedChats) {
+    const isGroup = groupsList.find(g => g.id === uid);
+    let raw = '';
+    if (isGroup) raw = `👥GRP:${uid}👥:${fwdText}`;
+    else raw = `🔒DM:${uid}🔒:${fwdText}`;
+    await db.from('messages').insert({ username: myUsername, text: raw });
+  }
+  closeForward();
+  toast('İletildi ✓');
+}
+
+// ── DÜZENLE ──
+function openEdit(msgId, text) {
+  editMsgId = msgId;
+  document.getElementById('editMsgInp').value = text;
+  document.getElementById('editOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('editMsgInp').focus(), 100);
+}
+
+function closeEdit() {
+  document.getElementById('editOverlay').classList.remove('open');
+  editMsgId = null;
+}
+
+async function saveEdit() {
+  const newText = document.getElementById('editMsgInp').value.trim();
+  if (!newText) { toast('Mesaj boş olamaz!'); return; }
+  const msg = loadedMessagesList.find(m => m.id === editMsgId);
+  if (!msg) return;
+
+  // Mevcut prefix'i koru (DM/GRP), sadece içeriği değiştir
+  let raw = msg.text;
+  const parsed = parseMessage(msg);
+  const oldClean = parsed.cleanText;
+  // Reaction varsa koru
+  const rxMatch = msg.text.match(/\[RX:.*?\]/);
+  const rxPart = rxMatch ? rxMatch[0] : '';
+  
+  if (parsed.isDM) raw = `🔒DM:${parsed.recipient}🔒:${newText}${rxPart}`;
+  else if (parsed.groupId) raw = `👥GRP:${parsed.groupId}👥:${newText}${rxPart}`;
+  else raw = newText + rxPart;
+
+  // [EDITED] etiketi ekle
+  raw += '[EDITED]';
+
+  const { error } = await db.from('messages').update({ text: raw }).eq('id', editMsgId);
+  if (error) { toast('Düzenlenemedi!'); return; }
+  closeEdit();
+  toast('Mesaj düzenlendi ✓');
+}
+
+// ── SİL FONKSİYONLARI ──
+async function deleteForAll(msgId) {
+  if (!confirm('Bu mesajı herkesten silmek istiyor musunuz?')) return;
+  const row = document.getElementById('msg-' + msgId);
+  if (row) row.style.opacity = '0.3';
+  const { error } = await db.from('messages').delete().eq('id', msgId);
+  if (error) { if(row) row.style.opacity='1'; toast('Silinemedi!'); }
+  else toast('Mesaj herkesten silindi ✓');
+}
+
+async function deleteForMe(msgId) {
+  const key = 'yam_deleted_' + myUsername;
+  const deleted = JSON.parse(localStorage.getItem(key) || '[]');
+  deleted.push(msgId);
+  localStorage.setItem(key, JSON.stringify(deleted));
+  const row = document.getElementById('msg-' + msgId);
+  if (row) row.remove();
+  toast('Mesaj benden silindi ✓');
+}
+
+</script>
+
+<script>
 // ── ONESIGNAL WEB PUSH ──
 const ONESIGNAL_APP_ID = 'db2947e6-c67f-4d18-b2fd-cf533daf7b68';
 
@@ -4031,6 +4442,170 @@ if(_origStartApp) {
 }
 </script>
 
+
+<!-- MESAJ CONTEXT MENU -->
+<div class="msg-ctx-overlay" id="msgCtxOverlay" onclick="closeMsgCtx()">
+  <div class="msg-ctx-sheet" onclick="event.stopPropagation()">
+    <div class="msg-ctx-preview" id="msgCtxPreview">
+      <div class="msg-ctx-preview-text">—</div>
+    </div>
+    <div class="msg-ctx-reactions" id="msgCtxReactions"></div>
+    <div class="msg-ctx-actions" id="msgCtxActions"></div>
+  </div>
+</div>
+
+<!-- İLET MODAL -->
+<div class="forward-overlay" id="forwardOverlay" onclick="closeForward()">
+  <div class="forward-sheet" onclick="event.stopPropagation()">
+    <div class="forward-title">İlet</div>
+    <div class="forward-list" id="forwardList"></div>
+    <button class="forward-send-btn" onclick="sendForward()">İlet →</button>
+  </div>
+</div>
+
+<!-- DÜZENLE MODAL -->
+<div class="edit-overlay" id="editOverlay" onclick="closeEdit()">
+  <div class="edit-sheet" onclick="event.stopPropagation()">
+    <div class="edit-title">✏️ Mesajı Düzenle</div>
+    <textarea class="edit-inp" id="editMsgInp" rows="3"></textarea>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">⏰ Yalnızca 30 dakika içinde düzenlenebilir</div>
+    <div class="edit-actions">
+      <button class="edit-cancel-btn" onclick="closeEdit()">İptal</button>
+      <button class="edit-save-btn" onclick="saveEdit()">Kaydet ✓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// iOS Safari WebRTC fix
+if (!navigator.mediaDevices && navigator.webkitGetUserMedia) {
+  navigator.mediaDevices = {};
+  navigator.mediaDevices.getUserMedia = function(constraints) {
+    return new Promise((resolve, reject) => {
+      navigator.webkitGetUserMedia(constraints, resolve, reject);
+    });
+  };
+}
+// iOS Safari AudioContext fix
+window.AudioContext = window.AudioContext || window.webkitAudioContext;
+
+</script>
+
+<!-- REACTION DETAIL MODAL -->
+<div class="rx-detail-overlay" id="rxDetailOverlay" onclick="closeRxDetail()">
+  <div class="rx-detail-sheet" onclick="event.stopPropagation()">
+    <div class="rx-detail-tabs" id="rxDetailTabs"></div>
+    <div class="rx-detail-list" id="rxDetailList"></div>
+  </div>
+</div>
+
+<script>
+
+// ── REACTION YARDIMCI FONKSİYONLARI ──
+function parseReactions(rxStr) {
+  // format: "emoji:user1|user2,emoji:user1" veya eski "emoji"
+  if (!rxStr) return {};
+  const groups = {};
+  // Yeni format
+  if (rxStr.includes(':')) {
+    rxStr.split(',').forEach(part => {
+      const colonIdx = part.indexOf(':');
+      if (colonIdx === -1) return;
+      const em = part.slice(0, colonIdx);
+      const users = part.slice(colonIdx + 1).split('|').filter(Boolean);
+      if (em && users.length) groups[em] = users;
+    });
+  } else {
+    // Eski format — tek emoji, bilinmeyen kullanıcı
+    groups[rxStr] = ['?'];
+  }
+  return groups;
+}
+
+function serializeReactions(rxGroups) {
+  return Object.entries(rxGroups)
+    .filter(([em, users]) => users.length > 0)
+    .map(([em, users]) => `${em}:${users.join('|')}`)
+    .join(',');
+}
+
+// Reaction detail modal
+let rxDetailMsgId = null;
+let rxDetailActiveTab = 'all';
+
+function openRxDetail(msgId) {
+  rxDetailMsgId = msgId;
+  const msg = loadedMessagesList.find(m => m.id === msgId);
+  if (!msg) return;
+  const parsed = parseMessage(msg);
+  const rxGroups = parseReactions(parsed.reaction || '');
+  
+  // Tabs
+  const tabsDiv = document.getElementById('rxDetailTabs');
+  tabsDiv.innerHTML = '';
+  const totalCount = Object.values(rxGroups).reduce((a, b) => a + b.length, 0);
+  
+  const allTab = document.createElement('button');
+  allTab.className = 'rx-tab active';
+  allTab.textContent = `Tümü ${totalCount}`;
+  allTab.onclick = () => renderRxDetailList(rxGroups, 'all');
+  tabsDiv.appendChild(allTab);
+  
+  Object.entries(rxGroups).forEach(([em, users]) => {
+    const tab = document.createElement('button');
+    tab.className = 'rx-tab';
+    tab.textContent = `${em} ${users.length}`;
+    tab.onclick = (e) => {
+      tabsDiv.querySelectorAll('.rx-tab').forEach(t => t.classList.remove('active'));
+      e.target.classList.add('active');
+      renderRxDetailList(rxGroups, em);
+    };
+    tabsDiv.appendChild(tab);
+  });
+
+  renderRxDetailList(rxGroups, 'all');
+  document.getElementById('rxDetailOverlay').classList.add('open');
+}
+
+function renderRxDetailList(rxGroups, filter) {
+  const list = document.getElementById('rxDetailList');
+  list.innerHTML = '';
+  const entries = filter === 'all'
+    ? Object.entries(rxGroups).flatMap(([em, users]) => users.map(u => ({em, u})))
+    : (rxGroups[filter] || []).map(u => ({em: filter, u}));
+  
+  if (!entries.length) {
+    list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted)">İfade yok</div>';
+    return;
+  }
+  
+  entries.forEach(({em, u}) => {
+    const item = document.createElement('div');
+    item.className = 'rx-detail-item';
+    const displayName = u === '?' ? 'Bilinmiyor' : getDisplayName(u);
+    const isMe = u === myUsername;
+    item.innerHTML = `
+      <div class="pu-av ${col(u)}" style="width:42px;height:42px">${ini(displayName)}</div>
+      <div class="rx-detail-name">${esc(displayName)}${isMe ? ' <span style="font-size:11px;color:var(--muted)">(Sen)</span>' : ''}</div>
+      <div class="rx-detail-emoji">${em}</div>
+      ${isMe ? `<button class="rx-detail-remove" onclick="removeMyRxFromDetail('${rxDetailMsgId}','${em}')">Kaldır</button>` : ''}
+    `;
+    list.appendChild(item);
+  });
+}
+
+function closeRxDetail() {
+  document.getElementById('rxDetailOverlay').classList.remove('open');
+  rxDetailMsgId = null;
+}
+
+async function removeMyRxFromDetail(msgId, emoji) {
+  await removeReaction(msgId);
+  closeRxDetail();
+}
+
+</script>
 </body>
 </html>
 
