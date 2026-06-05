@@ -195,6 +195,76 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   left: 15px;
 }
 
+/* AVATAR FULLSCREEN MODAL */
+.avatar-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  z-index: 1000;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  animation: fadein 0.2s ease;
+}
+.avatar-fullscreen-overlay.open {
+  display: flex;
+}
+.avatar-fullscreen-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.5), rgba(0,0,0,0));
+  z-index: 10;
+}
+.avatar-fullscreen-back {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.avatar-fullscreen-back:hover {
+  background: rgba(255,255,255,0.3);
+}
+.avatar-fullscreen-name {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.avatar-fullscreen-image {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  animation: scalein 0.3s ease;
+}
+@keyframes fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scalein {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
 /* TYPING */
 #typingBar{padding:0 16px 4px;min-height:22px;font-size:12px;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:7px;position:relative;z-index:1}
 .tdots{display:flex;gap:3px;align-items:center;background:var(--surface);padding:7px 11px;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
@@ -2317,6 +2387,41 @@ async function loadAvatars() {
   groupsList.forEach(g => { if(g.avatar_url) groupAvatarCache[g.id] = g.avatar_url; });
 }
 
+// Avatar fullscreen modal fonksiyonları
+function openAvatarFullscreen(name, imageUrl) {
+  const overlay = document.getElementById('avatarFullscreenOverlay');
+  if (!overlay) {
+    const newOverlay = document.createElement('div');
+    newOverlay.id = 'avatarFullscreenOverlay';
+    newOverlay.className = 'avatar-fullscreen-overlay open';
+    newOverlay.innerHTML = `
+      <div class="avatar-fullscreen-header">
+        <button class="avatar-fullscreen-back" onclick="closeAvatarFullscreen()">←</button>
+        <div class="avatar-fullscreen-name">${esc(name)}</div>
+      </div>
+      <img src="${imageUrl}" class="avatar-fullscreen-image" onclick="event.stopPropagation()">
+    `;
+    newOverlay.onclick = () => closeAvatarFullscreen();
+    document.body.appendChild(newOverlay);
+  } else {
+    overlay.querySelector('.avatar-fullscreen-header').innerHTML = `
+      <button class="avatar-fullscreen-back" onclick="closeAvatarFullscreen()">←</button>
+      <div class="avatar-fullscreen-name">${esc(name)}</div>
+    `;
+    overlay.querySelector('.avatar-fullscreen-image').src = imageUrl;
+    overlay.classList.add('open');
+  }
+  document.body.style.overflow = 'hidden';
+}
+
+function closeAvatarFullscreen() {
+  const overlay = document.getElementById('avatarFullscreenOverlay');
+  if (overlay) {
+    overlay.classList.remove('open');
+  }
+  document.body.style.overflow = '';
+}
+
 let _lastStoriesData = [];
 async function getStoriesData() {
   return _lastStoriesData;
@@ -3451,8 +3556,8 @@ function updateContactsPanel(){
         
         const gAvImg = groupAvatarCache[g.id];
         const gAvHtml = gAvImg
-          ? `<img src="${gAvImg}" loading="lazy" style="width:46px;height:46px;border-radius:14px;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.1)">`
-          : `<div class="pu-av av4">#</div>`;
+          ? `<img src="${gAvImg}" loading="lazy" style="width:46px;height:46px;border-radius:14px;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.1);cursor:pointer" onclick="event.stopPropagation();openAvatarFullscreen('${esc(g.name)}','${gAvImg}')">`
+          : `<div class="pu-av av4" style="cursor:pointer" onclick="event.stopPropagation()">#</div>`;
           
         let lastMsgText = `${g.members.length} üye`;
         const lastMsg = conversationLastMessages[g.id];
@@ -3482,7 +3587,13 @@ function updateContactsPanel(){
       }
       
       const d=document.createElement('div');d.className='pu';d.onclick=()=>switchChat(u,'dm');
-      d.innerHTML=`<div class="pu-av ${col(u)}">${ini(displayName)}</div><div style="flex:1; min-width:0;"><div class="pu-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(displayName)}</div><div class="pu-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--muted)">${esc(lastMsgText)}</div></div>`;
+      
+      const avatarUrl = avatarCache[u];
+      const avatarHtml = avatarUrl
+        ? `<img src="${avatarUrl}" loading="lazy" style="width:46px;height:46px;border-radius:14px;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.1);cursor:pointer" onclick="event.stopPropagation();openAvatarFullscreen('${esc(displayName)}','${avatarUrl}')">`
+        : `<div class="pu-av ${col(u)}" style="cursor:pointer" onclick="event.stopPropagation()">${ini(displayName)}</div>`;
+      
+      d.innerHTML=`${avatarHtml}<div style="flex:1; min-width:0;"><div class="pu-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(displayName)}</div><div class="pu-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--muted)">${esc(lastMsgText)}</div></div>`;
       pl.appendChild(d);
     });
   }
@@ -3501,7 +3612,14 @@ function updateContactsPanel(){
       }
 
       const d=document.createElement('div');d.className='pu';d.onclick=()=>switchChat(u,'dm');
-      d.innerHTML=`<div class="pu-av ${col(u)}">${ini(getDisplayName(u))}</div><div style="flex:1; min-width:0;"><div class="pu-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(getDisplayName(u))}</div><div class="pu-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--muted)">${esc(lastMsgText)}</div></div>`;
+      
+      const avatarUrl = avatarCache[u];
+      const displayNameVal = getDisplayName(u);
+      const avatarHtml = avatarUrl
+        ? `<img src="${avatarUrl}" loading="lazy" style="width:46px;height:46px;border-radius:14px;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.1);cursor:pointer" onclick="event.stopPropagation();openAvatarFullscreen('${esc(displayNameVal)}','${avatarUrl}')">`
+        : `<div class="pu-av ${col(u)}" style="cursor:pointer" onclick="event.stopPropagation()">${ini(displayNameVal)}</div>`;
+      
+      d.innerHTML=`${avatarHtml}<div style="flex:1; min-width:0;"><div class="pu-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(displayNameVal)}</div><div class="pu-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--muted)">${esc(lastMsgText)}</div></div>`;
       pl.appendChild(d);
     });
   }
