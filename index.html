@@ -1440,6 +1440,14 @@ function ini(name){return String(name||'?').slice(0,2).toUpperCase()}
 function tstr(ts){const d=new Date(ts);return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0')}
 function timeAgo(ts){const s=Math.floor((Date.now()-new Date(ts))/1000);if(s<60)return 'Az önce';if(s<3600)return Math.floor(s/60)+'dk';return Math.floor(s/3600)+'sa';}
 function esc(t){return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}
+function fmtText(t){
+  // WhatsApp-style: *bold*, _italic_, ~strikethrough~, `code`
+  return esc(t)
+    .replace(/\*((?:[^*]|\n)+?)\*/g,'<strong>$1</strong>')
+    .replace(/_((?:[^_]|\n)+?)_/g,'<em>$1</em>')
+    .replace(/~((?:[^~]|\n)+?)~/g,'<s>$1</s>')
+    .replace(/`((?:[^`]|\n)+?)`/g,'<code style="background:rgba(0,0,0,0.1);padding:1px 4px;border-radius:4px;font-family:monospace;font-size:13px">$1</code>');
+}
 
 // KULLANICI ADI YERİNE BİLİNMEYENLERDE E-POSTA GÖSTERİM FONKSİYONU
 function getDisplayName(username) {
@@ -1532,14 +1540,20 @@ function handleChatMediaSelect(input) {
 
 function sendLocation(isLive) {
     if(!navigator.geolocation) { toast('Cihazınızda konum servisi desteklenmiyor.'); return; }
-    toast('Konumunuz tespit ediliyor...');
+    document.getElementById('attachmentMenu').style.display = 'none';
+    toast('📍 Konumunuz tespit ediliyor...');
     navigator.geolocation.getCurrentPosition(pos => {
         const tag = isLive ? 'LIVE_LOCATION' : 'LOCATION';
-        sendMessage(`[${tag}]${pos.coords.latitude},${pos.coords.longitude}[/${tag}]`);
-        document.getElementById('attachmentMenu').style.display = 'none';
+        const lat = pos.coords.latitude.toFixed(6);
+        const lng = pos.coords.longitude.toFixed(6);
+        sendMessage(`[${tag}]${lat},${lng}[/${tag}]`);
     }, err => {
-        toast('Konum alınamadı. İzinleri kontrol ediniz.');
-    }, { enableHighAccuracy: true });
+        let msg = 'Konum alınamadı.';
+        if(err.code === 1) msg = 'Konum izni reddedildi. Tarayıcı ayarlarından izin verin.';
+        else if(err.code === 2) msg = 'Konum tespit edilemedi. Tekrar deneyin.';
+        else if(err.code === 3) msg = 'Konum isteği zaman aşımına uğradı.';
+        toast(msg);
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
 }
 
 // ── SHOW/HIDE SCREENS ──
@@ -2233,6 +2247,9 @@ function parseMessage(m){
       cleanText = cleanText.replace(/\[RX:.*?\]$/, '');
   }
 
+  // [EDITED] etiketini cleanText'ten temizle
+  cleanText = cleanText.replace(/\[EDITED\]$/, '');
+
   return{isDM,recipient,groupId,cleanText,reaction};
 }
 
@@ -2280,9 +2297,9 @@ function rebuildLastMessageCache() {
 
 async function loadMessages(){
   const el=document.getElementById('messages');
-  el.innerHTML='';
+  el.innerHTML='<div class="dsep" style="margin-top:40px"><span>⏳ Sohbet yükleniyor...</span></div>';
 
-  if(!currentChat) return;
+  if(!currentChat) { el.innerHTML=''; return; }
 
   const{data,error}=await db.from('messages').select('*').order('created_at',{ascending:false}).limit(200);
   if(error){toast('Mesajlar yüklenemedi.');return;}
@@ -2726,11 +2743,15 @@ function makeRow(m, cleanText, reaction) {
   const showDel=true; 
   const displayName = getDisplayName(m.username);
   
-  const isForwarded = cleanText && cleanText.startsWith('📤|İletildi|');
+  const isForwarded = cleanText && (cleanText.startsWith('📤|İletildi|') || cleanText.startsWith('*İletildi‎*'));
   const isEdited = (m.text||'').includes('[EDITED]');
-  const displayText = isForwarded ? cleanText.replace('📤|İletildi|', '') : cleanText;
-  const forwardedLabel = isForwarded ? `<div class="forwarded-label"><span style="font-size:13px">↪</span> İletildi</div>` : '';
-  const editedLabel = isEdited ? ' <span style="font-size:10px;opacity:0.7">✏️</span>' : '';
+  const displayText = isForwarded
+    ? cleanText.replace(/^📤\|İletildi\|/, '').replace(/^\*İletildi‎\*/, '')
+    : cleanText;
+  const forwardedLabel = isForwarded
+    ? `<div class="forwarded-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M14 3l7 7-7 7V13H3v-2h11V3z"/></svg> İletildi</div>`
+    : '';
+  const editedLabel = isEdited ? ' <span style="font-size:10px;opacity:0.7">Düzenlendi</span>' : '';
   let finalBodyHtml = '';
   
   const replyMatch = cleanText.match(/^\[STORY_REPLY\]([\s\S]*?)\[\/STORY_REPLY\]([\s\S]*)$/);
@@ -2741,10 +2762,25 @@ function makeRow(m, cleanText, reaction) {
   let locationHtml = null;
   if(cleanText.startsWith('[LOCATION]') && cleanText.endsWith('[/LOCATION]')) {
       const coords = cleanText.substring(10, cleanText.length - 11);
-      locationHtml = `<div class="btext"><a href="https://www.google.com/maps?q=${coords}" target="_blank" style="color:var(--primary);text-decoration:underline;display:flex;align-items:center;gap:4px;">📍 Konumu Gör</a></div>`;
+      const [lat, lng] = coords.split(',');
+      locationHtml = `<div class="btext">
+        <a href="https://www.google.com/maps?q=${coords}" target="_blank" style="display:block;text-decoration:none;">
+          <img src="https://maps.googleapis.com/maps/api/staticmap?center=${coords}&zoom=14&size=220x110&markers=${coords}&scale=2&key=AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY" 
+               onerror="this.style.display='none'" loading="lazy"
+               style="width:100%;max-width:220px;border-radius:8px;display:block;margin-bottom:4px;">
+          <span style="color:var(--primary);display:flex;align-items:center;gap:4px;font-size:13px;">📍 Konumu Gör</span>
+        </a>
+      </div>`;
   } else if(cleanText.startsWith('[LIVE_LOCATION]') && cleanText.endsWith('[/LIVE_LOCATION]')) {
       const coords = cleanText.substring(15, cleanText.length - 16);
-      locationHtml = `<div class="btext"><a href="https://www.google.com/maps?q=${coords}" target="_blank" style="color:var(--danger);text-decoration:underline;display:flex;align-items:center;gap:4px;">📡 Canlı Konum</a></div>`;
+      locationHtml = `<div class="btext">
+        <a href="https://www.google.com/maps?q=${coords}" target="_blank" style="display:block;text-decoration:none;">
+          <img src="https://maps.googleapis.com/maps/api/staticmap?center=${coords}&zoom=14&size=220x110&markers=color:red%7C${coords}&scale=2&key=AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY" 
+               onerror="this.style.display='none'" loading="lazy"
+               style="width:100%;max-width:220px;border-radius:8px;display:block;margin-bottom:4px;">
+          <span style="color:var(--danger);display:flex;align-items:center;gap:4px;font-size:13px;">📡 Canlı Konum</span>
+        </a>
+      </div>`;
   }
   
   // Medya (Fotoğraf/Video/GIF) Formatı Çözümleme
@@ -2824,8 +2860,8 @@ function makeRow(m, cleanText, reaction) {
   } else if (mediaInternalHtml) {
       finalBodyHtml = mediaInternalHtml;
   } else {
-    const dt = isForwarded ? (cleanText||m.text||'').replace('[FWD]','') : (cleanText||m.text||'');
-    finalBodyHtml = (forwardedLabel||'') + `<div class="btext">${esc(dt)}</div>`;
+    const dt = isForwarded ? (displayText||m.text||'') : (displayText||m.text||'');
+    finalBodyHtml = (forwardedLabel||'') + `<div class="btext">${fmtText(dt)}</div>`;
   }
   
   if (reaction) {
@@ -2843,7 +2879,7 @@ function makeRow(m, cleanText, reaction) {
     ${showDel?`<button class="bdel" onclick="deleteMsg('${m.id}')">✕</button>`:''}
     ${!mine?`<div class="bsender">${esc(displayName)}</div>`:''}
     ${finalBodyHtml}
-    <div class="bmeta"><span class="btime">${tstr(m.created_at)}</span>${mine?'<span class="btick">✓✓</span>':''}</div>
+    <div class="bmeta">${isEdited?`<span style="font-size:10px;opacity:0.65;margin-right:3px">Düzenlendi</span>`:''}<span class="btime">${tstr(m.created_at)}</span>${mine?'<span class="btick">✓✓</span>':''}</div>
   </div>`;
 
   let startX = 0; let startY = 0;
@@ -4269,7 +4305,7 @@ function closeForward() {
 
 async function sendForward() {
   if (!forwardSelectedChats.size) { toast('En az 1 kişi seç!'); return; }
-  const fwdText = '*İletildi‎*' + forwardText;
+  const fwdText = '📤|İletildi|' + forwardText;
   for (const uid of forwardSelectedChats) {
     const isGroup = groupsList.find(g => g.id === uid);
     let raw = '';
