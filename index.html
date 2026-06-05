@@ -6,6 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>YAM</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -943,6 +945,171 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
   padding: 6px 14px; font-size: 13px; color: var(--danger);
   font-weight: 600; cursor: pointer; font-family: inherit;
 }
+/* ── MEDYA FULLSCREEN VIEWER ── */
+#mediaViewer {
+  position: fixed; inset: 0; z-index: 9000;
+  background: #000; display: none; flex-direction: column;
+}
+#mediaViewer.open { display: flex; }
+.mv-header {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 12px 10px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+}
+.mv-back {
+  width: 38px; height: 38px; border-radius: 50%; border: none;
+  background: rgba(255,255,255,0.15); color: #fff; font-size: 20px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; backdrop-filter: blur(4px); flex-shrink: 0;
+}
+.mv-title { flex: 1; text-align: center; color: #fff; font-size: 15px; font-weight: 600; }
+.mv-more {
+  width: 38px; height: 38px; border-radius: 50%; border: none;
+  background: rgba(255,255,255,0.15); color: #fff; font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; backdrop-filter: blur(4px); flex-shrink: 0;
+  flex-direction: column; gap: 3px;
+}
+.mv-more-dot {
+  width: 4px; height: 4px; border-radius: 50%; background: #fff; pointer-events: none;
+}
+.mv-content {
+  flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.mv-content img {
+  max-width: 100%; max-height: 100%; object-fit: contain;
+}
+/* 3 nokta dropdown */
+.mv-dropdown {
+  position: absolute; top: 56px; right: 10px; z-index: 3;
+  background: #1e1e2e; border-radius: 14px;
+  overflow: hidden; min-width: 180px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  display: none;
+}
+.mv-dropdown.open { display: block; }
+.mv-dropdown-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px; color: #fff; font-size: 15px; font-weight: 500;
+  cursor: pointer; transition: background .15s; border: none;
+  background: none; width: 100%; text-align: left; font-family: inherit;
+}
+.mv-dropdown-item:hover { background: rgba(255,255,255,0.1); }
+.mv-dropdown-item + .mv-dropdown-item { border-top: 1px solid rgba(255,255,255,0.08); }
+
+/* GIF Favorileri sekmesi */
+.gif-favs-tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 14px 4px; background: var(--surface);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.gif-favs-btn {
+  padding: 6px 14px; border-radius: 20px; border: 2px solid var(--border);
+  background: none; color: var(--muted); font-size: 12px; font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.gif-favs-btn.active { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+
+/* ── KONUM BALONU ── */
+.loc-bubble {
+  width: 240px; border-radius: 14px; overflow: hidden;
+  cursor: pointer; text-decoration: none; display: block;
+  position: relative; box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  background: #e8eaed;
+}
+.loc-map-wrap {
+  width: 240px; height: 140px; position: relative; overflow: hidden;
+  pointer-events: none;
+}
+.loc-map-wrap .leaflet-container { width:100%; height:100%; z-index:1; }
+.loc-footer {
+  background: #fff; padding: 8px 12px;
+  display: flex; align-items: center; gap: 7px;
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+[data-theme="dark"] .loc-footer { background: #1e293b; border-color: #334155; }
+.loc-pin-icon {
+  width: 28px; height: 28px; flex-shrink: 0;
+  background: linear-gradient(135deg,#ef4444,#b91c1c);
+  border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  box-shadow: 0 2px 6px rgba(239,68,68,0.4);
+}
+.loc-text { flex:1; min-width:0; }
+.loc-label { font-size:13px; font-weight:700; color:#111827; line-height:1.2; }
+[data-theme="dark"] .loc-label { color:#f8fafc; }
+.loc-sublabel { font-size:11px; color:#6b7280; margin-top:1px; }
+.loc-arrow { font-size:14px; color:#6b7280; flex-shrink:0; }
+.loc-live-badge {
+  position:absolute; top:8px; left:8px; z-index:10;
+  background:rgba(239,68,68,0.92); color:#fff;
+  font-size:10px; font-weight:700; padding:3px 8px;
+  border-radius:20px; display:flex; align-items:center; gap:4px;
+  backdrop-filter:blur(4px);
+}
+.loc-live-dot {
+  width:6px; height:6px; background:#fff;
+  border-radius:50%; animation:livepulse 1.2s infinite;
+}
+@keyframes livepulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+
+/* ── KONUM SEÇİCİ MODAL ── */
+.location-picker-overlay {
+  position: fixed; inset: 0; z-index: 600;
+  background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+  display: none; align-items: flex-end; justify-content: center;
+}
+.location-picker-sheet {
+  background: var(--surface); border-radius: 24px 24px 0 0;
+  width: 100%; max-width: 500px;
+  display: flex; flex-direction: column;
+  max-height: 85vh; overflow: hidden;
+}
+.location-picker-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.location-picker-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.location-picker-close {
+  background: var(--bg); border: none; border-radius: 50%;
+  width: 32px; height: 32px; font-size: 16px; cursor: pointer;
+  color: var(--muted); display: flex; align-items: center; justify-content: center;
+}
+.location-picker-frame {
+  width: 100%; height: 300px; border: none; flex-shrink: 0; background: var(--bg);
+}
+.location-picker-search {
+  padding: 10px 16px 0; flex-shrink: 0; display: flex; gap: 8px;
+}
+.location-picker-search input {
+  flex: 1; border: 2px solid var(--border); border-radius: 10px;
+  padding: 9px 12px; font-family: inherit; font-size: 13px; color: var(--text);
+  background: var(--bg); outline: none; transition: border-color .2s;
+}
+.location-picker-search input:focus { border-color: var(--primary); }
+.location-picker-search button {
+  background: var(--primary); border: none; border-radius: 10px;
+  padding: 0 14px; color: #fff; font-size: 14px; cursor: pointer; font-weight: 600;
+  white-space: nowrap;
+}
+.location-picker-actions {
+  padding: 10px 16px 14px; display: flex; gap: 10px; flex-shrink: 0;
+}
+.location-my-btn {
+  flex: 1; background: var(--bg); border: 2px solid var(--border);
+  border-radius: 12px; padding: 12px; font-family: inherit;
+  font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px; transition: .15s;
+}
+.location-my-btn:hover { border-color: var(--primary); color: var(--primary); }
+.location-send-btn {
+  flex: 2; background: var(--gradient); border: none;
+  border-radius: 12px; padding: 12px; font-family: inherit;
+  font-size: 14px; font-weight: 700; color: #fff; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(99,102,241,.3); transition: .15s;
+}
+.location-send-btn:hover { transform: translateY(-1px); }
+.location-picker-info { font-size: 11px; color: var(--muted); text-align: center; padding: 0 16px 4px; flex-shrink: 0; }
 
 </style>
 </head>
@@ -1541,19 +1708,193 @@ function handleChatMediaSelect(input) {
 function sendLocation(isLive) {
     if(!navigator.geolocation) { toast('Cihazınızda konum servisi desteklenmiyor.'); return; }
     document.getElementById('attachmentMenu').style.display = 'none';
-    toast('📍 Konumunuz tespit ediliyor...');
+
+    if(isLive) {
+        // Canlı konum: direkt mevcut konumu gönder
+        toast('📡 Canlı konum gönderiliyor...');
+        navigator.geolocation.getCurrentPosition(pos => {
+            const lat = pos.coords.latitude.toFixed(6);
+            const lng = pos.coords.longitude.toFixed(6);
+            sendMessage(`[LIVE_LOCATION]${lat},${lng}[/LIVE_LOCATION]`);
+        }, err => {
+            let msg = 'Konum alınamadı.';
+            if(err.code === 1) msg = 'Konum izni reddedildi. Tarayıcı ayarlarından izin verin.';
+            else if(err.code === 2) msg = 'Konum tespit edilemedi. Tekrar deneyin.';
+            else if(err.code === 3) msg = 'Konum isteği zaman aşımına uğradı.';
+            toast(msg);
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+    } else {
+        // Normal konum: haritadan seç
+        openLocationPicker();
+    }
+}
+
+let locationPickerMap = null;
+let locationPickerMarker = null;
+let locationPickerCoords = null;
+let locationPickerLeafletLoaded = false;
+
+function _loadLeaflet(cb) {
+    if (window.L) { cb(); return; }
+    if (locationPickerLeafletLoaded) {
+        const wait = setInterval(() => { if (window.L) { clearInterval(wait); cb(); } }, 100);
+        return;
+    }
+    locationPickerLeafletLoaded = true;
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(css);
+    const js = document.createElement('script');
+    js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    js.onload = cb;
+    document.head.appendChild(js);
+}
+
+function openLocationPicker() {
+    document.getElementById('locationPickerOverlay').style.display = 'flex';
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            _initLeafletPicker(pos.coords.latitude, pos.coords.longitude);
+        }, () => {
+            _initLeafletPicker(41.0082, 28.9784);
+        }, { enableHighAccuracy: true, timeout: 8000 });
+    } else {
+        _initLeafletPicker(41.0082, 28.9784);
+    }
+}
+
+function _initLeafletPicker(lat, lng) {
+    locationPickerCoords = { lat, lng };
+    const frame = document.getElementById('locationPickerFrame');
+    frame.style.display = 'none';
+
+    let mapDiv = document.getElementById('locationPickerMapDiv');
+    if (!mapDiv) {
+        mapDiv = document.createElement('div');
+        mapDiv.id = 'locationPickerMapDiv';
+        mapDiv.style.cssText = 'width:100%;height:300px;flex-shrink:0;position:relative;z-index:1;';
+        frame.parentNode.insertBefore(mapDiv, frame);
+    }
+    mapDiv.style.display = 'block';
+
+    _loadLeaflet(() => {
+        // Harita zaten varsa kaldır
+        if (locationPickerMap) {
+            locationPickerMap.remove();
+            locationPickerMap = null;
+            locationPickerMarker = null;
+        }
+
+        const map = L.map(mapDiv, { zoomControl: true, attributionControl: false }).setView([lat, lng], 15);
+        locationPickerMap = map;
+
+        // Carto Light tile — temiz, Google Maps benzeri görünüm, API key yok
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        // Özel kırmızı marker ikonu
+        const redIcon = L.divIcon({
+            html: `<div style="width:28px;height:28px;background:linear-gradient(135deg,#ef4444,#b91c1c);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,0.3);"></div>`,
+            iconSize: [28, 28],
+            iconAnchor: [14, 28],
+            className: ''
+        });
+
+        const marker = L.marker([lat, lng], { draggable: true, icon: redIcon }).addTo(map);
+        locationPickerMarker = marker;
+
+        // Haritaya tıklayınca marker oraya git
+        map.on('click', (e) => {
+            const { lat: newLat, lng: newLng } = e.latlng;
+            marker.setLatLng(e.latlng);
+            locationPickerCoords = { lat: newLat, lng: newLng };
+            _updateLocationInfo(newLat, newLng);
+        });
+
+        // Marker sürüklenince güncelle
+        marker.on('dragend', (e) => {
+            const { lat: newLat, lng: newLng } = e.target.getLatLng();
+            locationPickerCoords = { lat: newLat, lng: newLng };
+            _updateLocationInfo(newLat, newLng);
+        });
+
+        _updateLocationInfo(lat, lng);
+
+        // Sheet açıldıktan sonra haritanın boyutunu düzelt
+        setTimeout(() => map.invalidateSize(), 300);
+    });
+}
+
+function _updateLocationInfo(lat, lng) {
+    document.getElementById('locationPickerInfo').textContent =
+        `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)} — Haritaya tıklayın veya marker'ı sürükleyin`;
+}
+
+function useMyLocation() {
+    if (!navigator.geolocation) { toast('Konum desteklenmiyor.'); return; }
+    toast('📍 Konumunuz alınıyor...');
     navigator.geolocation.getCurrentPosition(pos => {
-        const tag = isLive ? 'LIVE_LOCATION' : 'LOCATION';
-        const lat = pos.coords.latitude.toFixed(6);
-        const lng = pos.coords.longitude.toFixed(6);
-        sendMessage(`[${tag}]${lat},${lng}[/${tag}]`);
-    }, err => {
-        let msg = 'Konum alınamadı.';
-        if(err.code === 1) msg = 'Konum izni reddedildi. Tarayıcı ayarlarından izin verin.';
-        else if(err.code === 2) msg = 'Konum tespit edilemedi. Tekrar deneyin.';
-        else if(err.code === 3) msg = 'Konum isteği zaman aşımına uğradı.';
-        toast(msg);
-    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+        const { latitude: lat, longitude: lng } = pos.coords;
+        locationPickerCoords = { lat, lng };
+        if (locationPickerMap && locationPickerMarker) {
+            const ll = L.latLng(lat, lng);
+            locationPickerMap.setView(ll, 16);
+            locationPickerMarker.setLatLng(ll);
+            _updateLocationInfo(lat, lng);
+        } else {
+            _initLeafletPicker(lat, lng);
+        }
+    }, () => toast('Konum alınamadı.'), { enableHighAccuracy: true, timeout: 8000 });
+}
+
+function locationPickerSearch() {
+    const q = document.getElementById('locationSearchInput').value.trim();
+    if (!q) return;
+    toast('🔍 Aranıyor...');
+    // Nominatim (OpenStreetMap geocoder) — ücretsiz, API key yok
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`, {
+        headers: { 'Accept-Language': 'tr' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data && data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lng = parseFloat(data[0].lon);
+            locationPickerCoords = { lat, lng };
+            if (locationPickerMap && locationPickerMarker) {
+                const ll = L.latLng(lat, lng);
+                locationPickerMap.setView(ll, 15);
+                locationPickerMarker.setLatLng(ll);
+                _updateLocationInfo(lat, lng);
+            } else {
+                _initLeafletPicker(lat, lng);
+            }
+        } else {
+            toast('Konum bulunamadı.');
+        }
+    })
+    .catch(() => toast('Arama başarısız oldu.'));
+}
+
+function confirmLocationSend() {
+    if (!locationPickerCoords) { toast('Konum seçilmedi!'); return; }
+    const { lat, lng } = locationPickerCoords;
+    sendMessage(`[LOCATION]${lat.toFixed(6)},${lng.toFixed(6)}[/LOCATION]`);
+    closeLocationPicker();
+}
+
+function closeLocationPicker() {
+    document.getElementById('locationPickerOverlay').style.display = 'none';
+    if (locationPickerMap) {
+        locationPickerMap.remove();
+        locationPickerMap = null;
+        locationPickerMarker = null;
+    }
+    const mapDiv = document.getElementById('locationPickerMapDiv');
+    if (mapDiv) mapDiv.style.display = 'none';
+    locationPickerCoords = null;
 }
 
 // ── SHOW/HIDE SCREENS ──
@@ -2043,9 +2384,16 @@ function renderEmojiKeyboard() {
         <span onclick="switchEmojiTab('gif')" id="tab-gif" style="color:var(--text);">🎞️ GIF'ler</span>
     </div>
     <div id="emojiContainer" class="emoji-drawer-grid"></div>
-    <div id="gifContainerWrap" style="display:none; flex-direction:column; flex:1; overflow:hidden; padding:8px;">
-        <input type="text" id="gifSearchInput" class="gif-search-input" placeholder="GIF Ara..." onkeyup="if(event.key==='Enter') searchGifs(this.value)">
-        <div id="gifContainer" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; overflow-y:auto; flex:1;"></div>
+    <div id="gifContainerWrap" style="display:none; flex-direction:column; flex:1; overflow:hidden; padding:0;">
+        <div class="gif-favs-tab">
+          <button class="gif-favs-btn active" id="gifAllTab" onclick="switchGifSubTab('all')">🔍 Tümü</button>
+          <button class="gif-favs-btn" id="gifFavTab" onclick="switchGifSubTab('fav')">⭐ Favoriler</button>
+        </div>
+        <div style="padding:8px 8px 0;">
+          <input type="text" id="gifSearchInput" class="gif-search-input" placeholder="GIF Ara..." onkeyup="if(event.key==='Enter') searchGifs(this.value)" style="margin-bottom:6px;">
+        </div>
+        <div id="gifContainer" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; overflow-y:auto; flex:1; padding:0 8px 8px;"></div>
+        <div id="gifFavContainer" style="display:none; grid-template-columns: repeat(3, 1fr); gap:8px; overflow-y:auto; flex:1; padding:8px;"></div>
     </div>
   `;
   
@@ -2071,6 +2419,40 @@ function switchEmojiTab(tab) {
 
 async function loadGifs() {
     searchGifs('trending');
+}
+
+function switchGifSubTab(tab) {
+  const allTab = document.getElementById('gifAllTab');
+  const favTab = document.getElementById('gifFavTab');
+  const gifCont = document.getElementById('gifContainer');
+  const favCont = document.getElementById('gifFavContainer');
+  const searchInput = document.getElementById('gifSearchInput');
+  if (!allTab) return;
+  if (tab === 'all') {
+    allTab.classList.add('active'); favTab.classList.remove('active');
+    gifCont.style.display = 'grid'; favCont.style.display = 'none';
+    if (searchInput) searchInput.style.display = '';
+  } else {
+    favTab.classList.add('active'); allTab.classList.remove('active');
+    gifCont.style.display = 'none'; favCont.style.display = 'grid';
+    if (searchInput) searchInput.style.display = 'none';
+    renderFavGifs();
+  }
+}
+
+function renderFavGifs() {
+  const favCont = document.getElementById('gifFavContainer');
+  if (!favCont) return;
+  const favs = _mvGetFavs ? _mvGetFavs() : (JSON.parse(localStorage.getItem('yam-fav-gifs') || '[]'));
+  if (!favs.length) {
+    favCont.style.display = 'block';
+    favCont.innerHTML = '<div style="grid-column:span 3;text-align:center;padding:32px 16px;color:var(--muted);font-size:14px;">Henüz favori GIF yok.<br>Bir GIF\'e uzun bas ve ⭐ ekle.</div>';
+    return;
+  }
+  favCont.style.display = 'grid';
+  favCont.innerHTML = favs.map(url =>
+    `<img loading="lazy" src="${url}" onclick="sendGifUrl('${url}')" style="width:100%; height:90px; object-fit:cover; border-radius:8px; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.1);">`
+  ).join('');
 }
 
 async function searchGifs(query) {
@@ -2277,6 +2659,8 @@ function updateLastMessageCache(m) {
   }
   
   if (p.isDM) {
+    // Sadece myUsername'in taraf olduğu DM mesajlarını cache'e al
+    if (m.username !== myUsername && p.recipient !== myUsername) return;
     const partner = (m.username === myUsername) ? p.recipient : m.username;
     if (!conversationLastMessages[partner] || new Date(m.created_at) > new Date(conversationLastMessages[partner].created_at)) {
       conversationLastMessages[partner] = { text: cleanTxt, sender: m.username, created_at: m.created_at };
@@ -2301,9 +2685,26 @@ async function loadMessages(){
 
   if(!currentChat) { el.innerHTML=''; return; }
 
-  const{data,error}=await db.from('messages').select('*').order('created_at',{ascending:false}).limit(200);
-  if(error){toast('Mesajlar yüklenemedi.');return;}
-  let all=(data||[]).reverse();
+  // Sadece myUsername'in dahil olduğu mesajları çek:
+  // (gönderen ben) VEYA (DM alıcısı ben) VEYA (grup mesajı — tüm gruplar)
+  // Bunu sağlamak için iki ayrı sorgu yapıp birleştiriyoruz.
+  const [sentRes, recvRes, grpRes] = await Promise.all([
+    db.from('messages').select('*')
+      .eq('username', myUsername)
+      .order('created_at', {ascending: false}).limit(300),
+    db.from('messages').select('*')
+      .like('text', `🔒DM:${myUsername}🔒:%`)
+      .order('created_at', {ascending: false}).limit(300),
+    db.from('messages').select('*')
+      .like('text', '👥GRP:%')
+      .order('created_at', {ascending: false}).limit(300),
+  ]);
+  if(sentRes.error || recvRes.error || grpRes.error){toast('Mesajlar yüklenemedi.');return;}
+
+  // Birleştir ve tekrarları kaldır
+  const allMap = new Map();
+  [...(sentRes.data||[]), ...(recvRes.data||[]), ...(grpRes.data||[])].forEach(m => allMap.set(m.id, m));
+  let all = [...allMap.values()].sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
 
   loadedMessagesList = all; 
   rebuildLastMessageCache();
@@ -2762,23 +3163,34 @@ function makeRow(m, cleanText, reaction) {
   let locationHtml = null;
   if(cleanText.startsWith('[LOCATION]') && cleanText.endsWith('[/LOCATION]')) {
       const coords = cleanText.substring(10, cleanText.length - 11);
-      const [lat, lng] = coords.split(',');
-      locationHtml = `<div class="btext">
-        <a href="https://www.google.com/maps?q=${coords}" target="_blank" style="display:block;text-decoration:none;">
-          <img src="https://maps.googleapis.com/maps/api/staticmap?center=${coords}&zoom=14&size=220x110&markers=${coords}&scale=2&key=AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY" 
-               onerror="this.style.display='none'" loading="lazy"
-               style="width:100%;max-width:220px;border-radius:8px;display:block;margin-bottom:4px;">
-          <span style="color:var(--primary);display:flex;align-items:center;gap:4px;font-size:13px;">📍 Konumu Gör</span>
+      const mapId = 'locmap_' + m.id;
+      locationHtml = `<div class="btext" style="padding:0;">
+        <a href="https://www.google.com/maps?q=${coords}" target="_blank" class="loc-bubble">
+          <div class="loc-map-wrap" id="${mapId}" data-coords="${coords}" data-live="0"></div>
+          <div class="loc-footer">
+            <div class="loc-pin-icon"></div>
+            <div class="loc-text">
+              <div class="loc-label">Konum</div>
+              <div class="loc-sublabel">Haritada görüntüle →</div>
+            </div>
+          </div>
         </a>
       </div>`;
   } else if(cleanText.startsWith('[LIVE_LOCATION]') && cleanText.endsWith('[/LIVE_LOCATION]')) {
       const coords = cleanText.substring(15, cleanText.length - 16);
-      locationHtml = `<div class="btext">
-        <a href="https://www.google.com/maps?q=${coords}" target="_blank" style="display:block;text-decoration:none;">
-          <img src="https://maps.googleapis.com/maps/api/staticmap?center=${coords}&zoom=14&size=220x110&markers=color:red%7C${coords}&scale=2&key=AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY" 
-               onerror="this.style.display='none'" loading="lazy"
-               style="width:100%;max-width:220px;border-radius:8px;display:block;margin-bottom:4px;">
-          <span style="color:var(--danger);display:flex;align-items:center;gap:4px;font-size:13px;">📡 Canlı Konum</span>
+      const mapId = 'locmap_' + m.id;
+      locationHtml = `<div class="btext" style="padding:0;">
+        <a href="https://www.google.com/maps?q=${coords}" target="_blank" class="loc-bubble">
+          <div class="loc-map-wrap" id="${mapId}" data-coords="${coords}" data-live="1">
+            <div class="loc-live-badge"><div class="loc-live-dot"></div>Canlı Konum</div>
+          </div>
+          <div class="loc-footer">
+            <div class="loc-pin-icon"></div>
+            <div class="loc-text">
+              <div class="loc-label">Canlı Konum</div>
+              <div class="loc-sublabel">Haritada görüntüle →</div>
+            </div>
+          </div>
         </a>
       </div>`;
   }
@@ -2789,10 +3201,14 @@ function makeRow(m, cleanText, reaction) {
   if (directMediaMatch) {
       const type = directMediaMatch[1];
       const src = directMediaMatch[2];
+      // GIF tespiti: tenor/giphy URL'si veya .gif uzantısı
+      const isGif = src.includes('tenor.com') || src.includes('giphy.com') || src.toLowerCase().includes('.gif') || src.includes('g.tenor');
       if(type === 'video') {
           mediaInternalHtml = `<video loading="lazy" src="${src}" controls style="max-width:100%; max-height:250px; border-radius:12px; margin-bottom:4px;"></video>`;
+      } else if (isGif) {
+          mediaInternalHtml = `<img loading="lazy" src="${src}" onclick="openMediaViewer('${src}', 'gif')" style="max-width:100%; max-height:250px; border-radius:12px; margin-bottom:4px; cursor:pointer;">`;
       } else {
-          mediaInternalHtml = `<img loading="lazy" src="${src}" style="max-width:100%; max-height:250px; border-radius:12px; margin-bottom:4px;">`;
+          mediaInternalHtml = `<img loading="lazy" src="${src}" onclick="openMediaViewer('${src}', 'photo')" style="max-width:100%; max-height:250px; border-radius:12px; margin-bottom:4px; cursor:pointer;">`;
       }
   }
 
@@ -4514,7 +4930,82 @@ if(_origStartApp) {
 
 <script>
 
-// iOS Safari WebRTC fix
+// ── MEDYA VIEWER ──
+let _mvCurrentSrc = '';
+let _mvCurrentType = ''; // 'photo' veya 'gif'
+
+function openMediaViewer(src, type) {
+  _mvCurrentSrc = src;
+  _mvCurrentType = type;
+  document.getElementById('mvImg').src = src;
+  document.getElementById('mvTitle').textContent = type === 'gif' ? 'GIF' : 'Fotoğraf';
+  // Favorilere Ekle sadece GIF için görünür
+  const favBtn = document.getElementById('mvFavBtn');
+  favBtn.style.display = type === 'gif' ? '' : 'none';
+  // Favori durumu güncelle
+  _mvUpdateFavLabel();
+  document.getElementById('mediaViewer').classList.add('open');
+  document.getElementById('mvDropdown').classList.remove('open');
+}
+
+function closeMediaViewer() {
+  document.getElementById('mediaViewer').classList.remove('open');
+  document.getElementById('mvDropdown').classList.remove('open');
+  document.getElementById('mvImg').src = '';
+}
+
+function toggleMvDropdown() {
+  document.getElementById('mvDropdown').classList.toggle('open');
+}
+
+// Dropdown dışına tıklayınca kapat
+document.getElementById('mediaViewer').addEventListener('click', function(e) {
+  const dropdown = document.getElementById('mvDropdown');
+  const moreBtn = document.getElementById('mvMoreBtn');
+  if (dropdown.classList.contains('open') && !dropdown.contains(e.target) && !moreBtn.contains(e.target)) {
+    dropdown.classList.remove('open');
+  }
+});
+
+function mvSave() {
+  document.getElementById('mvDropdown').classList.remove('open');
+  const a = document.createElement('a');
+  a.href = _mvCurrentSrc;
+  a.download = _mvCurrentType === 'gif' ? 'yam-gif.gif' : 'yam-foto.jpg';
+  a.target = '_blank';
+  a.click();
+  toast('💾 Kaydediliyor...');
+}
+
+function _mvGetFavs() {
+  try { return JSON.parse(localStorage.getItem('yam-fav-gifs') || '[]'); } catch { return []; }
+}
+function _mvSaveFavs(favs) {
+  localStorage.setItem('yam-fav-gifs', JSON.stringify(favs));
+}
+function _mvUpdateFavLabel() {
+  const favs = _mvGetFavs();
+  const isFav = favs.includes(_mvCurrentSrc);
+  const btn = document.getElementById('mvFavBtn');
+  btn.textContent = isFav ? '★ Favorilerden Çıkar' : '⭐ Favorilere Ekle';
+}
+function mvToggleFav() {
+  document.getElementById('mvDropdown').classList.remove('open');
+  let favs = _mvGetFavs();
+  const idx = favs.indexOf(_mvCurrentSrc);
+  if (idx === -1) { favs.push(_mvCurrentSrc); toast('⭐ Favorilere eklendi!'); }
+  else { favs.splice(idx, 1); toast('Favorilerden çıkarıldı.'); }
+  _mvSaveFavs(favs);
+  _mvUpdateFavLabel();
+  // GIF paneli açıksa güncelle
+  if (document.getElementById('gifContainerWrap') && document.getElementById('gifContainerWrap').style.display !== 'none') {
+    if (document.getElementById('gifFavTab') && document.getElementById('gifFavTab').classList.contains('active')) {
+      renderFavGifs();
+    }
+  }
+}
+
+// ── iOS Safari WebRTC fix
 if (!navigator.mediaDevices && navigator.webkitGetUserMedia) {
   navigator.mediaDevices = {};
   navigator.mediaDevices.getUserMedia = function(constraints) {
@@ -4528,7 +5019,27 @@ window.AudioContext = window.AudioContext || window.webkitAudioContext;
 
 </script>
 
-<!-- REACTION DETAIL MODAL -->
+<!-- MEDYA FULLSCREEN VIEWER -->
+<div id="mediaViewer">
+  <div class="mv-header">
+    <button class="mv-back" onclick="closeMediaViewer()">←</button>
+    <div class="mv-title" id="mvTitle"></div>
+    <button class="mv-more" id="mvMoreBtn" onclick="toggleMvDropdown()">
+      <span class="mv-more-dot"></span>
+      <span class="mv-more-dot"></span>
+      <span class="mv-more-dot"></span>
+    </button>
+  </div>
+  <div class="mv-content">
+    <img id="mvImg" src="" alt="">
+  </div>
+  <div class="mv-dropdown" id="mvDropdown">
+    <button class="mv-dropdown-item" id="mvSaveBtn" onclick="mvSave()">💾 Telefona Kaydet</button>
+    <button class="mv-dropdown-item" id="mvFavBtn" onclick="mvToggleFav()" style="display:none">⭐ Favorilere Ekle</button>
+  </div>
+</div>
+
+
 <div class="rx-detail-overlay" id="rxDetailOverlay" onclick="closeRxDetail()">
   <div class="rx-detail-sheet" onclick="event.stopPropagation()">
     <div class="rx-detail-tabs" id="rxDetailTabs"></div>
@@ -4642,6 +5153,93 @@ async function removeMyRxFromDetail(msgId, emoji) {
 }
 
 </script>
+<div class="location-picker-overlay" id="locationPickerOverlay">
+  <div class="location-picker-sheet" onclick="event.stopPropagation()">
+    <div class="location-picker-head">
+      <div class="location-picker-title">📍 Konum Seç</div>
+      <button class="location-picker-close" onclick="closeLocationPicker()">✕</button>
+    </div>
+    <div class="location-picker-search">
+      <input type="text" id="locationSearchInput" placeholder="Adres veya yer ara..." onkeydown="if(event.key==='Enter')locationPickerSearch()">
+      <button onclick="locationPickerSearch()">Ara</button>
+    </div>
+    <iframe id="locationPickerFrame" class="location-picker-frame" loading="lazy" allowfullscreen></iframe>
+    <div class="location-picker-info" id="locationPickerInfo">Konumunuz yükleniyor...</div>
+    <div class="location-picker-actions">
+      <button class="location-my-btn" onclick="useMyLocation()">📍 Benim Konum</button>
+      <button class="location-send-btn" onclick="confirmLocationSend()">Gönder →</button>
+    </div>
+  </div>
+</div>
+
+
+
+
+<script>
+// ── KONUM BALONU MİNİ HARİTA RENDER ──
+const _locMapsRendered = new Set();
+
+function renderLocMiniMaps() {
+  if (typeof L === 'undefined') return;
+  document.querySelectorAll('.loc-map-wrap[data-coords]').forEach(el => {
+    if (_locMapsRendered.has(el.id)) return;
+    _locMapsRendered.add(el.id);
+
+    const coords = el.dataset.coords;
+    const isLive = el.dataset.live === '1';
+    const parts = coords.split(',');
+    if (parts.length < 2) return;
+    const lat = parseFloat(parts[0]);
+    const lng = parseFloat(parts[1]);
+    if (isNaN(lat) || isNaN(lng)) return;
+
+    // Badge'i geçici koru
+    const badge = el.querySelector('.loc-live-badge');
+
+    const mapDiv = document.createElement('div');
+    mapDiv.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;';
+    el.appendChild(mapDiv);
+
+    const map = L.map(mapDiv, {
+      zoomControl: false,
+      dragging: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      touchZoom: false,
+      keyboard: false,
+      attributionControl: false,
+      tap: false
+    }).setView([lat, lng], 15);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19
+    }).addTo(map);
+
+    // Kırmızı pin marker
+    const pinIcon = L.divIcon({
+      html: `<div style="width:22px;height:22px;background:linear-gradient(135deg,#ef4444,#b91c1c);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2.5px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,0.35);"></div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 22],
+      className: ''
+    });
+    L.marker([lat, lng], { icon: pinIcon }).addTo(map);
+
+    // Badge DOM sırasını koru (marker üstünde görünsün)
+    if (badge) el.appendChild(badge);
+
+    setTimeout(() => map.invalidateSize(), 100);
+  });
+}
+
+// MutationObserver: yeni konum balonu DOM'a eklenince haritayı çiz
+const _locObserver = new MutationObserver(() => renderLocMiniMaps());
+document.addEventListener('DOMContentLoaded', () => {
+  _locObserver.observe(document.getElementById('messages') || document.body, {
+    childList: true, subtree: true
+  });
+  renderLocMiniMaps();
+});
+</script>
+
 </body>
 </html>
-
