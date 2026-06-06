@@ -1329,8 +1329,8 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
     
     <!-- Ek Gönderim Menüsü -->
     <div id="attachmentMenu" class="attach-menu">
-      <button class="attach-item" onclick="document.getElementById('chatMediaUpload').click()">🖼️ Galeri</button>
-      <button class="attach-item" onclick="document.getElementById('chatMediaCapture').click()">📸 Kamera</button>
+      <button class="attach-item" onclick="openInAppGallery()">🖼️ Galeri</button>
+      <button class="attach-item" onclick="openInAppCamera()">📸 Kamera</button>
       <button class="attach-item" onclick="sendLocation(false)">📍 Konum</button>
       <button class="attach-item" onclick="sendLocation(true)">📡 Canlı Konum</button>
     </div>
@@ -2388,37 +2388,78 @@ async function loadAvatars() {
 }
 
 // Avatar fullscreen modal fonksiyonları
+// Avatar fullscreen zoom state
+let _avScale = 1, _avTransX = 0, _avTransY = 0, _avLastDist = 0, _avDragging = false, _avDragStart = {x:0,y:0};
+
 function openAvatarFullscreen(name, imageUrl) {
-  const overlay = document.getElementById('avatarFullscreenOverlay');
+  _avScale = 1; _avTransX = 0; _avTransY = 0;
+  let overlay = document.getElementById('avatarFullscreenOverlay');
   if (!overlay) {
-    const newOverlay = document.createElement('div');
-    newOverlay.id = 'avatarFullscreenOverlay';
-    newOverlay.className = 'avatar-fullscreen-overlay open';
-    newOverlay.innerHTML = `
+    overlay = document.createElement('div');
+    overlay.id = 'avatarFullscreenOverlay';
+    overlay.className = 'avatar-fullscreen-overlay';
+    overlay.innerHTML = `
       <div class="avatar-fullscreen-header">
-        <button class="avatar-fullscreen-back" onclick="closeAvatarFullscreen()">←</button>
-        <div class="avatar-fullscreen-name">${esc(name)}</div>
+        <button class="avatar-fullscreen-back" onclick="closeAvatarFullscreen()">&#8592;</button>
+        <div class="avatar-fullscreen-name" id="avFsName"></div>
       </div>
-      <img src="${imageUrl}" class="avatar-fullscreen-image" onclick="event.stopPropagation()">
+      <div id="avFsImgWrap" style="display:flex;align-items:center;justify-content:center;flex:1;overflow:hidden;touch-action:none;">
+        <img id="avFsImg" class="avatar-fullscreen-image" style="transition:transform 0.05s ease;user-select:none;will-change:transform;" onclick="event.stopPropagation()">
+      </div>
+      <div style="padding:12px 0 20px;color:rgba(255,255,255,0.45);font-size:11px;text-align:center;pointer-events:none;">Pinch to zoom &bull; Double-tap reset</div>
     `;
-    newOverlay.onclick = () => closeAvatarFullscreen();
-    document.body.appendChild(newOverlay);
-  } else {
-    overlay.querySelector('.avatar-fullscreen-header').innerHTML = `
-      <button class="avatar-fullscreen-back" onclick="closeAvatarFullscreen()">←</button>
-      <div class="avatar-fullscreen-name">${esc(name)}</div>
-    `;
-    overlay.querySelector('.avatar-fullscreen-image').src = imageUrl;
-    overlay.classList.add('open');
+    overlay.onclick = (e) => { if(e.target === overlay) closeAvatarFullscreen(); };
+    document.body.appendChild(overlay);
+    const wrap = overlay.querySelector('#avFsImgWrap');
+    let _lastTap = 0;
+    wrap.addEventListener('touchstart', (e) => {
+      if(e.touches.length === 2) {
+        _avLastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        e.preventDefault();
+      } else if(e.touches.length === 1 && _avScale > 1) {
+        _avDragging = true;
+        _avDragStart = {x: e.touches[0].clientX - _avTransX, y: e.touches[0].clientY - _avTransY};
+        e.preventDefault();
+      }
+      const now = Date.now();
+      if(now - _lastTap < 300) {
+        _avScale = _avScale > 1 ? 1 : 2.5; _avTransX = 0; _avTransY = 0;
+        _avApplyTransform();
+      }
+      _lastTap = now;
+    }, {passive:false});
+    wrap.addEventListener('touchmove', (e) => {
+      if(e.touches.length === 2) {
+        e.preventDefault();
+        const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        const delta = dist / (_avLastDist || dist);
+        _avLastDist = dist;
+        _avScale = Math.min(5, Math.max(1, _avScale * delta));
+        _avApplyTransform();
+      } else if(e.touches.length === 1 && _avDragging) {
+        e.preventDefault();
+        _avTransX = e.touches[0].clientX - _avDragStart.x;
+        _avTransY = e.touches[0].clientY - _avDragStart.y;
+        _avApplyTransform();
+      }
+    }, {passive:false});
+    wrap.addEventListener('touchend', () => { _avDragging = false; if(_avScale < 1){ _avScale=1; _avTransX=0; _avTransY=0; _avApplyTransform(); } });
   }
+  overlay.querySelector('#avFsName').textContent = name;
+  overlay.querySelector('#avFsImg').src = imageUrl;
+  _avApplyTransform();
+  overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+function _avApplyTransform() {
+  const img = document.getElementById('avFsImg');
+  if(img) img.style.transform = `scale(${_avScale}) translate(${_avTransX/_avScale}px, ${_avTransY/_avScale}px)`;
 }
 
 function closeAvatarFullscreen() {
   const overlay = document.getElementById('avatarFullscreenOverlay');
-  if (overlay) {
-    overlay.classList.remove('open');
-  }
+  if (overlay) overlay.classList.remove('open');
   document.body.style.overflow = '';
 }
 
@@ -5048,41 +5089,121 @@ if(_origStartApp) {
 
 <script>
 
-// ── MEDYA VIEWER ──
+// ── MEDYA VIEWER (Pinch-to-Zoom destekli) ──
 let _mvCurrentSrc = '';
-let _mvCurrentType = ''; // 'photo' veya 'gif'
+let _mvCurrentType = '';
+
+// Pinch-to-zoom state
+let _mvScale = 1, _mvMinScale = 1, _mvMaxScale = 5;
+let _mvTransX = 0, _mvTransY = 0;
+let _mvLastTouchDist = 0;
+let _mvIsDragging = false;
+let _mvDragStart = {x:0, y:0};
+let _mvLastTrans = {x:0, y:0};
+let _mvTouchCount = 0;
 
 function openMediaViewer(src, type) {
   _mvCurrentSrc = src;
   _mvCurrentType = type;
-  document.getElementById('mvImg').src = src;
+  _mvScale = 1; _mvTransX = 0; _mvTransY = 0;
+  const img = document.getElementById('mvImg');
+  img.src = src;
+  img.style.transform = 'scale(1) translate(0px, 0px)';
   document.getElementById('mvTitle').textContent = type === 'gif' ? 'GIF' : 'Fotoğraf';
-  // Favorilere Ekle sadece GIF için görünür
   const favBtn = document.getElementById('mvFavBtn');
   favBtn.style.display = type === 'gif' ? '' : 'none';
-  // Favori durumu güncelle
   _mvUpdateFavLabel();
   document.getElementById('mediaViewer').classList.add('open');
   document.getElementById('mvDropdown').classList.remove('open');
+  _mvAttachZoomEvents();
+}
+
+function _mvApplyTransform() {
+  const img = document.getElementById('mvImg');
+  img.style.transform = `scale(${_mvScale}) translate(${_mvTransX/_mvScale}px, ${_mvTransY/_mvScale}px)`;
+}
+
+function _mvAttachZoomEvents() {
+  const content = document.getElementById('mvContent');
+  content.removeEventListener('touchstart', _mvTouchStart);
+  content.removeEventListener('touchmove', _mvTouchMove);
+  content.removeEventListener('touchend', _mvTouchEnd);
+  content.addEventListener('touchstart', _mvTouchStart, {passive:false});
+  content.addEventListener('touchmove', _mvTouchMove, {passive:false});
+  content.addEventListener('touchend', _mvTouchEnd, {passive:false});
+  // Double-tap to zoom
+  let _mvLastTap = 0;
+  content.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if(now - _mvLastTap < 300) {
+      if(_mvScale > 1) { _mvScale=1; _mvTransX=0; _mvTransY=0; }
+      else { _mvScale=2.5; }
+      _mvApplyTransform();
+    }
+    _mvLastTap = now;
+  });
+}
+
+function _mvTouchStart(e) {
+  _mvTouchCount = e.touches.length;
+  if(e.touches.length === 2) {
+    _mvLastTouchDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    e.preventDefault();
+  } else if(e.touches.length === 1 && _mvScale > 1) {
+    _mvIsDragging = true;
+    _mvDragStart = {x: e.touches[0].clientX - _mvTransX, y: e.touches[0].clientY - _mvTransY};
+    e.preventDefault();
+  }
+}
+
+function _mvTouchMove(e) {
+  if(e.touches.length === 2) {
+    e.preventDefault();
+    const dist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    const delta = dist / _mvLastTouchDist;
+    _mvLastTouchDist = dist;
+    _mvScale = Math.min(_mvMaxScale, Math.max(_mvMinScale, _mvScale * delta));
+    _mvApplyTransform();
+  } else if(e.touches.length === 1 && _mvIsDragging) {
+    e.preventDefault();
+    _mvTransX = e.touches[0].clientX - _mvDragStart.x;
+    _mvTransY = e.touches[0].clientY - _mvDragStart.y;
+    _mvApplyTransform();
+  }
+}
+
+function _mvTouchEnd(e) {
+  if(e.touches.length < 2) _mvLastTouchDist = 0;
+  if(e.touches.length === 0) _mvIsDragging = false;
+  if(_mvScale < 1) { _mvScale = 1; _mvTransX=0; _mvTransY=0; _mvApplyTransform(); }
 }
 
 function closeMediaViewer() {
   document.getElementById('mediaViewer').classList.remove('open');
   document.getElementById('mvDropdown').classList.remove('open');
   document.getElementById('mvImg').src = '';
+  _mvScale = 1; _mvTransX = 0; _mvTransY = 0;
 }
 
 function toggleMvDropdown() {
   document.getElementById('mvDropdown').classList.toggle('open');
 }
 
-// Dropdown dışına tıklayınca kapat
-document.getElementById('mediaViewer').addEventListener('click', function(e) {
-  const dropdown = document.getElementById('mvDropdown');
-  const moreBtn = document.getElementById('mvMoreBtn');
-  if (dropdown.classList.contains('open') && !dropdown.contains(e.target) && !moreBtn.contains(e.target)) {
-    dropdown.classList.remove('open');
-  }
+document.addEventListener('DOMContentLoaded', () => {
+  const mv = document.getElementById('mediaViewer');
+  if(mv) mv.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('mvDropdown');
+    const moreBtn = document.getElementById('mvMoreBtn');
+    if (dropdown.classList.contains('open') && !dropdown.contains(e.target) && !moreBtn.contains(e.target)) {
+      dropdown.classList.remove('open');
+    }
+  });
 });
 
 function mvSave() {
@@ -5105,7 +5226,7 @@ function _mvUpdateFavLabel() {
   const favs = _mvGetFavs();
   const isFav = favs.includes(_mvCurrentSrc);
   const btn = document.getElementById('mvFavBtn');
-  btn.textContent = isFav ? '★ Favorilerden Çıkar' : '⭐ Favorilere Ekle';
+  if(btn) btn.textContent = isFav ? '★ Favorilerden Çıkar' : '⭐ Favorilere Ekle';
 }
 function mvToggleFav() {
   document.getElementById('mvDropdown').classList.remove('open');
@@ -5115,7 +5236,6 @@ function mvToggleFav() {
   else { favs.splice(idx, 1); toast('Favorilerden çıkarıldı.'); }
   _mvSaveFavs(favs);
   _mvUpdateFavLabel();
-  // GIF paneli açıksa güncelle
   if (document.getElementById('gifContainerWrap') && document.getElementById('gifContainerWrap').style.display !== 'none') {
     if (document.getElementById('gifFavTab') && document.getElementById('gifFavTab').classList.contains('active')) {
       renderFavGifs();
@@ -5140,7 +5260,7 @@ window.AudioContext = window.AudioContext || window.webkitAudioContext;
 <!-- MEDYA FULLSCREEN VIEWER -->
 <div id="mediaViewer">
   <div class="mv-header">
-    <button class="mv-back" onclick="closeMediaViewer()">←</button>
+    <button class="mv-back" onclick="closeMediaViewer()">&#8592;</button>
     <div class="mv-title" id="mvTitle"></div>
     <button class="mv-more" id="mvMoreBtn" onclick="toggleMvDropdown()">
       <span class="mv-more-dot"></span>
@@ -5148,13 +5268,14 @@ window.AudioContext = window.AudioContext || window.webkitAudioContext;
       <span class="mv-more-dot"></span>
     </button>
   </div>
-  <div class="mv-content">
-    <img id="mvImg" src="" alt="">
+  <div class="mv-content" id="mvContent" style="overflow:hidden;touch-action:none;">
+    <img id="mvImg" src="" alt="" style="transition:transform 0.05s ease; user-select:none; max-width:90vw; max-height:80vh; object-fit:contain; will-change:transform;">
   </div>
   <div class="mv-dropdown" id="mvDropdown">
-    <button class="mv-dropdown-item" id="mvSaveBtn" onclick="mvSave()">💾 Telefona Kaydet</button>
-    <button class="mv-dropdown-item" id="mvFavBtn" onclick="mvToggleFav()" style="display:none">⭐ Favorilere Ekle</button>
+    <button class="mv-dropdown-item" id="mvSaveBtn" onclick="mvSave()">&#128190; Telefona Kaydet</button>
+    <button class="mv-dropdown-item" id="mvFavBtn" onclick="mvToggleFav()" style="display:none">&#11088; Favorilere Ekle</button>
   </div>
+  <div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.5);font-size:11px;pointer-events:none;">&#124; Pinch to zoom &bull; Double-tap to reset</div>
 </div>
 
 
@@ -5357,6 +5478,1044 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   renderLocMiniMaps();
 });
+</script>
+
+
+
+<!-- ══════════════════════════════════════════════════════════
+     IN-APP CAMERA + GALLERY + MEDIA EDITOR
+     ══════════════════════════════════════════════════════════ -->
+<style>
+/* ── IN-APP CAMERA ── */
+#inAppCamera {
+  position: fixed; inset: 0; z-index: 9000;
+  background: #000; display: none; flex-direction: column;
+}
+#inAppCamera.open { display: flex; }
+#camVideo {
+  flex: 1; width: 100%; object-fit: cover; background: #000;
+}
+.cam-top-bar {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 18px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+  z-index: 10;
+}
+.cam-top-btn {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: rgba(0,0,0,0.4); border: none; color: #fff;
+  font-size: 20px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.cam-bottom-bar {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 30px 28px 44px;
+  background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+  display: flex; align-items: center; justify-content: space-between; z-index: 10;
+}
+.cam-shutter {
+  width: 76px; height: 76px; border-radius: 50%;
+  background: rgba(255,255,255,0.95); border: 4px solid rgba(255,255,255,0.5);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5); transition: transform 0.1s;
+  flex-shrink: 0; position: relative;
+}
+.cam-shutter:active { transform: scale(0.9); }
+.cam-shutter-inner {
+  width: 58px; height: 58px; border-radius: 50%;
+  background: white; transition: all 0.1s;
+}
+.cam-shutter.recording .cam-shutter-inner {
+  background: #ef4444; border-radius: 12px; width: 30px; height: 30px;
+}
+.cam-gallery-thumb {
+  width: 54px; height: 54px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.7);
+  object-fit: cover; cursor: pointer; background: rgba(255,255,255,0.1);
+  display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px;
+  overflow: hidden; flex-shrink: 0;
+}
+.cam-flip-btn {
+  width: 50px; height: 50px; border-radius: 50%;
+  background: rgba(0,0,0,0.4); border: none; color: #fff;
+  font-size: 22px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(4px); flex-shrink: 0;
+}
+.cam-video-timer {
+  position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+  background: rgba(239,68,68,0.85); color: #fff; font-size: 14px; font-weight: 700;
+  padding: 4px 12px; border-radius: 20px; display: none; z-index: 10;
+}
+.cam-video-timer.active { display: block; }
+.cam-mode-hint {
+  position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%);
+  color: rgba(255,255,255,0.7); font-size: 12px; text-align: center;
+  pointer-events: none; z-index: 10;
+  background: rgba(0,0,0,0.3); padding: 4px 12px; border-radius: 20px;
+}
+
+/* ── IN-APP GALLERY ── */
+#inAppGallery {
+  position: fixed; inset: 0; z-index: 8500;
+  background: var(--bg); display: none; flex-direction: column;
+}
+#inAppGallery.open { display: flex; }
+.gallery-header {
+  background: var(--surface); padding: 14px 18px;
+  display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.gallery-title { font-size: 17px; font-weight: 700; color: var(--text); flex: 1; }
+.gallery-send-btn {
+  background: var(--gradient); border: none; border-radius: 20px;
+  padding: 8px 18px; color: #fff; font-size: 14px; font-weight: 700;
+  cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.gallery-send-btn.visible { opacity: 1; pointer-events: auto; }
+.gallery-grid {
+  flex: 1; overflow-y: auto; display: grid;
+  grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 2px;
+}
+.gallery-item {
+  aspect-ratio: 1; position: relative; cursor: pointer; overflow: hidden;
+  background: var(--border);
+}
+.gallery-item img, .gallery-item video {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.gallery-item-check {
+  position: absolute; top: 6px; right: 6px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: rgba(0,0,0,0.4); border: 2px solid rgba(255,255,255,0.8);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 12px; font-weight: 700; transition: all 0.15s;
+}
+.gallery-item.selected .gallery-item-check {
+  background: var(--primary); border-color: var(--primary);
+}
+.gallery-item.selected::after {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(99,102,241,0.2); pointer-events: none;
+}
+.gallery-video-badge {
+  position: absolute; bottom: 4px; left: 6px;
+  background: rgba(0,0,0,0.6); color: #fff; font-size: 11px;
+  font-weight: 700; padding: 2px 6px; border-radius: 8px;
+}
+.gallery-tabs {
+  display: flex; gap: 0; border-bottom: 1px solid var(--border);
+  background: var(--surface); flex-shrink: 0;
+}
+.gallery-tab {
+  flex: 1; padding: 10px; text-align: center; font-size: 13px;
+  font-weight: 600; color: var(--muted); border: none; background: none;
+  cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s;
+}
+.gallery-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.gallery-empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; color: var(--muted); gap: 12px; padding: 40px;
+  text-align: center;
+}
+
+/* ── MEDIA EDITOR ── */
+#mediaEditor {
+  position: fixed; inset: 0; z-index: 9500;
+  background: #111; display: none; flex-direction: column;
+}
+#mediaEditor.open { display: flex; }
+.meditor-header {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+  background: rgba(0,0,0,0.6); flex-shrink: 0; z-index: 10;
+}
+.meditor-close {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(255,255,255,0.15); border: none; color: #fff;
+  font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.meditor-title { flex: 1; color: #fff; font-size: 16px; font-weight: 700; }
+.meditor-send {
+  background: var(--gradient); border: none; border-radius: 22px;
+  padding: 10px 22px; color: #fff; font-size: 15px; font-weight: 700;
+  cursor: pointer; box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+}
+.meditor-canvas-wrap {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+  touch-action: none;
+}
+#meditorCanvas {
+  max-width: 100%; max-height: 100%; object-fit: contain;
+  cursor: crosshair;
+}
+#meditorVideoWrap {
+  display: none; flex-direction: column; align-items: center;
+  justify-content: center; width: 100%; height: 100%;
+}
+#meditorVideo {
+  max-width: 100%; max-height: 100%;
+}
+.meditor-toolbar {
+  background: rgba(0,0,0,0.85); padding: 10px 0 14px;
+  display: flex; flex-direction: column; gap: 8px;
+  flex-shrink: 0;
+}
+.meditor-tools {
+  display: flex; gap: 6px; padding: 0 14px;
+  overflow-x: auto; flex-shrink: 0;
+}
+.meditor-tools::-webkit-scrollbar { display: none; }
+.meditor-tool {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: rgba(255,255,255,0.1); border: none; border-radius: 12px;
+  padding: 8px 12px; color: rgba(255,255,255,0.8); font-size: 11px;
+  font-weight: 600; cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+  min-width: 54px;
+}
+.meditor-tool span:first-child { font-size: 22px; }
+.meditor-tool.active { background: var(--primary); color: #fff; }
+.meditor-tool:hover { background: rgba(255,255,255,0.2); }
+.meditor-tool.active:hover { background: var(--primary-dark); }
+
+.meditor-colors {
+  display: flex; gap: 8px; padding: 0 14px;
+  overflow-x: auto; align-items: center;
+}
+.meditor-colors::-webkit-scrollbar { display: none; }
+.meditor-color {
+  width: 30px; height: 30px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
+  border: 3px solid transparent; transition: all 0.15s;
+}
+.meditor-color.active { border-color: #fff; transform: scale(1.2); }
+.meditor-size-row {
+  display: flex; align-items: center; gap: 10px; padding: 0 14px;
+}
+.meditor-size-row label { color: rgba(255,255,255,0.7); font-size: 11px; font-weight: 600; }
+.meditor-size-slider {
+  flex: 1; height: 4px; accent-color: var(--primary); cursor: pointer;
+}
+
+/* Text overlay on canvas */
+.meditor-text-input {
+  position: absolute; background: transparent; border: 2px dashed rgba(255,255,255,0.6);
+  color: #fff; font-size: 24px; font-weight: 700; font-family: 'Plus Jakarta Sans', sans-serif;
+  padding: 6px 10px; outline: none; border-radius: 6px; min-width: 60px; text-align: center;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+  max-width: 80%; resize: none; overflow: hidden;
+}
+
+/* Video trim UI */
+.meditor-video-trim {
+  padding: 12px 14px; display: none; flex-direction: column; gap: 8px;
+}
+.meditor-video-trim.active { display: flex; }
+.trim-bar {
+  height: 32px; background: rgba(255,255,255,0.1); border-radius: 8px;
+  position: relative; overflow: hidden; cursor: pointer;
+}
+.trim-fill {
+  position: absolute; top: 0; bottom: 0; background: rgba(99,102,241,0.6);
+  border: 2px solid var(--primary); border-radius: 6px;
+}
+.trim-handle {
+  position: absolute; top: 0; bottom: 0; width: 14px;
+  background: var(--primary); cursor: ew-resize; border-radius: 4px;
+}
+.trim-handle-left { left: 0; border-radius: 6px 0 0 6px; }
+.trim-handle-right { right: 0; border-radius: 0 6px 6px 0; }
+.trim-time-labels {
+  display: flex; justify-content: space-between;
+  color: rgba(255,255,255,0.7); font-size: 11px; font-weight: 600;
+}
+</style>
+
+<!-- IN-APP CAMERA -->
+<div id="inAppCamera">
+  <video id="camVideo" autoplay playsinline muted></video>
+  <div class="cam-top-bar">
+    <button class="cam-top-btn" onclick="closeInAppCamera()">✕</button>
+    <button class="cam-top-btn" id="camFlashBtn" onclick="toggleCamFlash()">⚡</button>
+  </div>
+  <div class="cam-video-timer" id="camVideoTimer">⏺ 0:00</div>
+  <div class="cam-mode-hint" id="camModeHint">Fotoğraf için dokun • Video için basılı tut</div>
+  <div class="cam-bottom-bar">
+    <div class="cam-gallery-thumb" id="camGalleryThumbBtn" onclick="openInAppGalleryFromCamera()">🖼️</div>
+    <div class="cam-shutter" id="camShutter">
+      <div class="cam-shutter-inner"></div>
+    </div>
+    <button class="cam-flip-btn" onclick="flipCamera()">🔄</button>
+  </div>
+</div>
+
+<!-- IN-APP GALLERY -->
+<div id="inAppGallery">
+  <div class="gallery-header">
+    <button class="cam-top-btn" style="background:var(--bg);color:var(--text);width:36px;height:36px;" onclick="closeInAppGallery()">✕</button>
+    <div class="gallery-title">Galeri</div>
+    <button class="gallery-send-btn" id="gallerySendBtn" onclick="sendSelectedMedia()">Gönder</button>
+  </div>
+  <div class="gallery-tabs">
+    <button class="gallery-tab active" id="galleryTabAll" onclick="switchGalleryTab('all')">Tümü</button>
+    <button class="gallery-tab" id="galleryTabPhoto" onclick="switchGalleryTab('photo')">Fotoğraflar</button>
+    <button class="gallery-tab" id="galleryTabVideo" onclick="switchGalleryTab('video')">Videolar</button>
+  </div>
+  <div class="gallery-grid" id="galleryGrid"></div>
+</div>
+
+<!-- MEDIA EDITOR -->
+<div id="mediaEditor">
+  <div class="meditor-header">
+    <button class="meditor-close" onclick="closeMeditor()">✕</button>
+    <div class="meditor-title" id="meditorTitle">Düzenle</div>
+    <button class="meditor-send" onclick="sendEditedMedia()">Gönder ➤</button>
+  </div>
+  <div class="meditor-canvas-wrap" id="meditorCanvasWrap">
+    <canvas id="meditorCanvas"></canvas>
+    <div id="meditorVideoWrap">
+      <video id="meditorVideo" controls style="max-width:100%;max-height:70vh;"></video>
+    </div>
+  </div>
+  <div class="meditor-toolbar" id="meditorToolbar">
+    <div class="meditor-tools">
+      <button class="meditor-tool" id="mtoolDraw" onclick="setMeditorTool('draw')"><span>✏️</span><span>Çiz</span></button>
+      <button class="meditor-tool" id="mtoolText" onclick="setMeditorTool('text')"><span>T</span><span>Yazı</span></button>
+      <button class="meditor-tool" id="mtoolCrop" onclick="setMeditorTool('crop')"><span>✂️</span><span>Kırp</span></button>
+      <button class="meditor-tool" id="mtoolEmoji" onclick="setMeditorTool('emoji')"><span>😊</span><span>Emoji</span></button>
+      <button class="meditor-tool" id="mtoolUndo" onclick="meditorUndo()"><span>↩️</span><span>Geri Al</span></button>
+    </div>
+    <div class="meditor-colors" id="meditorColors">
+      <div class="meditor-color active" style="background:#fff" onclick="setMeditorColor('#fff')"></div>
+      <div class="meditor-color" style="background:#ef4444" onclick="setMeditorColor('#ef4444')"></div>
+      <div class="meditor-color" style="background:#f97316" onclick="setMeditorColor('#f97316')"></div>
+      <div class="meditor-color" style="background:#eab308" onclick="setMeditorColor('#eab308')"></div>
+      <div class="meditor-color" style="background:#22c55e" onclick="setMeditorColor('#22c55e')"></div>
+      <div class="meditor-color" style="background:#06b6d4" onclick="setMeditorColor('#06b6d4')"></div>
+      <div class="meditor-color" style="background:#6366f1" onclick="setMeditorColor('#6366f1')"></div>
+      <div class="meditor-color" style="background:#ec4899" onclick="setMeditorColor('#ec4899')"></div>
+      <div class="meditor-color" style="background:#000" onclick="setMeditorColor('#000')"></div>
+    </div>
+    <div class="meditor-size-row">
+      <label>Kalınlık</label>
+      <input type="range" class="meditor-size-slider" id="meditorSizeSlider" min="2" max="30" value="6" oninput="meditorBrushSize=parseInt(this.value)">
+    </div>
+    <div class="meditor-video-trim" id="meditorVideoTrim">
+      <div class="trim-bar" id="trimBar">
+        <div class="trim-fill" id="trimFill" style="left:0%;right:0%"></div>
+        <div class="trim-handle trim-handle-left" id="trimHandleLeft"></div>
+        <div class="trim-handle trim-handle-right" id="trimHandleRight"></div>
+      </div>
+      <div class="trim-time-labels">
+        <span id="trimStartLabel">0:00</span>
+        <span id="trimEndLabel">0:00</span>
+      </div>
+    </div>
+  </div>
+  <!-- Emoji picker for editor -->
+  <div id="meditorEmojiPicker" style="display:none;position:absolute;bottom:220px;left:14px;right:14px;background:var(--surface);border-radius:16px;padding:12px;z-index:10;box-shadow:0 10px 30px rgba(0,0,0,0.5);max-height:200px;overflow-y:auto;">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════
+//  IN-APP CAMERA
+// ══════════════════════════════
+let _camStream = null;
+let _camFacingMode = 'environment';
+let _camFlashOn = false;
+let _camMediaRecorder = null;
+let _camVideoChunks = [];
+let _camVideoTimer = null;
+let _camVideoSeconds = 0;
+let _camLongPressTimer = null;
+let _camIsRecording = false;
+let _camFromCamera = false;
+
+async function openInAppCamera(fromCamera) {
+  _camFromCamera = !!fromCamera;
+  document.getElementById('inAppCamera').classList.add('open');
+  document.getElementById('attachmentMenu').style.display = 'none';
+  await _camStartStream();
+  _camSetupShutter();
+  _camUpdateGalleryThumb();
+}
+
+async function _camStartStream() {
+  try {
+    if(_camStream) { _camStream.getTracks().forEach(t => t.stop()); }
+    _camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: _camFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: true
+    });
+    document.getElementById('camVideo').srcObject = _camStream;
+  } catch(e) {
+    toast('Kamera erişilemiyor: ' + e.message);
+    closeInAppCamera();
+  }
+}
+
+async function flipCamera() {
+  _camFacingMode = _camFacingMode === 'environment' ? 'user' : 'environment';
+  await _camStartStream();
+}
+
+function toggleCamFlash() {
+  _camFlashOn = !_camFlashOn;
+  document.getElementById('camFlashBtn').style.color = _camFlashOn ? '#eab308' : '#fff';
+  if(_camStream) {
+    const track = _camStream.getVideoTracks()[0];
+    if(track && track.applyConstraints) {
+      track.applyConstraints({ advanced: [{ torch: _camFlashOn }] }).catch(() => {});
+    }
+  }
+}
+
+function closeInAppCamera() {
+  if(_camStream) { _camStream.getTracks().forEach(t => t.stop()); _camStream = null; }
+  if(_camIsRecording) _camStopVideoRecording();
+  document.getElementById('inAppCamera').classList.remove('open');
+}
+
+function _camSetupShutter() {
+  const shutter = document.getElementById('camShutter');
+  shutter.onmousedown = shutter.ontouchstart = (e) => {
+    e.preventDefault();
+    _camLongPressTimer = setTimeout(() => {
+      _camStartVideoRecording();
+    }, 400);
+  };
+  shutter.onmouseup = shutter.ontouchend = (e) => {
+    e.preventDefault();
+    if(_camIsRecording) {
+      _camStopVideoRecording();
+    } else {
+      clearTimeout(_camLongPressTimer);
+      _camTakePhoto();
+    }
+  };
+  shutter.onmouseleave = () => { clearTimeout(_camLongPressTimer); };
+}
+
+function _camTakePhoto() {
+  const video = document.getElementById('camVideo');
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  if(_camFacingMode === 'user') {
+    ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
+  }
+  ctx.drawImage(video, 0, 0);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  closeInAppCamera();
+  openMeditor(dataUrl, 'photo');
+}
+
+function _camStartVideoRecording() {
+  if(!_camStream || _camIsRecording) return;
+  _camIsRecording = true;
+  _camVideoChunks = [];
+  _camVideoSeconds = 0;
+  document.getElementById('camShutter').classList.add('recording');
+  document.getElementById('camVideoTimer').classList.add('active');
+  document.getElementById('camModeHint').style.display = 'none';
+  
+  _camMediaRecorder = new MediaRecorder(_camStream, { mimeType: 'video/webm' });
+  _camMediaRecorder.ondataavailable = (e) => { if(e.data.size > 0) _camVideoChunks.push(e.data); };
+  _camMediaRecorder.onstop = _camProcessVideoRecording;
+  _camMediaRecorder.start(100);
+
+  _camVideoTimer = setInterval(() => {
+    _camVideoSeconds++;
+    const m = Math.floor(_camVideoSeconds / 60);
+    const s = _camVideoSeconds % 60;
+    document.getElementById('camVideoTimer').textContent = `⏺ ${m}:${s.toString().padStart(2,'0')}`;
+    if(_camVideoSeconds >= 60) _camStopVideoRecording();
+  }, 1000);
+}
+
+function _camStopVideoRecording() {
+  if(!_camIsRecording) return;
+  _camIsRecording = false;
+  clearInterval(_camVideoTimer);
+  document.getElementById('camShutter').classList.remove('recording');
+  document.getElementById('camVideoTimer').classList.remove('active');
+  document.getElementById('camModeHint').style.display = 'block';
+  if(_camMediaRecorder && _camMediaRecorder.state !== 'inactive') _camMediaRecorder.stop();
+}
+
+function _camProcessVideoRecording() {
+  const blob = new Blob(_camVideoChunks, { type: 'video/webm' });
+  const url = URL.createObjectURL(blob);
+  closeInAppCamera();
+  openMeditor(url, 'video', blob);
+}
+
+async function _camUpdateGalleryThumb() {
+  const btn = document.getElementById('camGalleryThumbBtn');
+  if(!btn) return;
+  try {
+    const handle = await navigator.storage?.getDirectory?.();
+    btn.innerHTML = '🖼️';
+  } catch(e) {}
+}
+
+function openInAppGalleryFromCamera() {
+  closeInAppCamera();
+  openInAppGallery();
+}
+
+// ══════════════════════════════
+//  IN-APP GALLERY  
+// ══════════════════════════════
+let _galleryItems = [];
+let _gallerySelected = new Set();
+let _galleryTab = 'all';
+let _galleryFileInput = null;
+
+function openInAppGallery() {
+  document.getElementById('inAppGallery').classList.add('open');
+  document.getElementById('attachmentMenu').style.display = 'none';
+  _gallerySelected.clear();
+  _galleryRequestAccess();
+}
+
+function closeInAppGallery() {
+  document.getElementById('inAppGallery').classList.remove('open');
+  _gallerySelected.clear();
+}
+
+async function _galleryRequestAccess() {
+  // We use a file input to let the browser's native picker load files
+  // Then display them in our custom grid
+  const grid = document.getElementById('galleryGrid');
+  grid.innerHTML = `<div class="gallery-empty" style="grid-column:1/-1;"><div style="font-size:48px;">🖼️</div><div style="font-size:14px;font-weight:600;">Galeriye erişmek için bir fotoğraf seçin</div><button onclick="_galleryPickFiles()" style="margin-top:12px;background:var(--gradient);border:none;border-radius:20px;padding:10px 24px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">Galeriyi Aç</button></div>`;
+  
+  if(!_galleryFileInput) {
+    _galleryFileInput = document.createElement('input');
+    _galleryFileInput.type = 'file';
+    _galleryFileInput.accept = 'image/*,video/*';
+    _galleryFileInput.multiple = true;
+    _galleryFileInput.style.display = 'none';
+    document.body.appendChild(_galleryFileInput);
+    _galleryFileInput.onchange = (e) => _galleryLoadFiles(e.target.files);
+  }
+}
+
+function _galleryPickFiles() {
+  _galleryFileInput.click();
+}
+
+function _galleryLoadFiles(fileList) {
+  _galleryItems = [];
+  Array.from(fileList).forEach((file, i) => {
+    const url = URL.createObjectURL(file);
+    const type = file.type.startsWith('video') ? 'video' : 'photo';
+    _galleryItems.push({ id: i, url, file, type, name: file.name });
+  });
+  _galleryRenderGrid();
+}
+
+function switchGalleryTab(tab) {
+  _galleryTab = tab;
+  document.querySelectorAll('.gallery-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('galleryTab' + (tab === 'all' ? 'All' : tab === 'photo' ? 'Photo' : 'Video')).classList.add('active');
+  _galleryRenderGrid();
+}
+
+function _galleryRenderGrid() {
+  const grid = document.getElementById('galleryGrid');
+  grid.innerHTML = '';
+  const items = _galleryTab === 'all' ? _galleryItems :
+                 _galleryTab === 'photo' ? _galleryItems.filter(i => i.type === 'photo') :
+                 _galleryItems.filter(i => i.type === 'video');
+  
+  if(!items.length) {
+    grid.innerHTML = `<div class="gallery-empty" style="grid-column:1/-1;"><div style="font-size:48px;">📂</div><div>Bu kategoride medya yok</div>${_galleryItems.length===0?'<button onclick="_galleryPickFiles()" style="margin-top:12px;background:var(--gradient);border:none;border-radius:20px;padding:10px 24px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">Galeriyi Aç</button>':''}</div>`;
+    return;
+  }
+
+  items.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'gallery-item' + (_gallerySelected.has(item.id) ? ' selected' : '');
+    el.innerHTML = `
+      ${item.type === 'video' 
+        ? `<video src="${item.url}" muted playsinline preload="metadata"></video><div class="gallery-video-badge">VIDEO</div>`
+        : `<img src="${item.url}" loading="lazy">`}
+      <div class="gallery-item-check">${_gallerySelected.has(item.id) ? '✓' : ''}</div>
+    `;
+    el.onclick = () => _galleryToggleItem(item.id, item);
+    grid.appendChild(el);
+  });
+}
+
+function _galleryToggleItem(id, item) {
+  if(_gallerySelected.has(id)) {
+    _gallerySelected.delete(id);
+  } else {
+    // Single select — open editor directly
+    if(_gallerySelected.size === 0) {
+      closeInAppGallery();
+      openMeditor(item.url, item.type, item.file);
+      return;
+    }
+    _gallerySelected.add(id);
+  }
+  _galleryRenderGrid();
+  const sendBtn = document.getElementById('gallerySendBtn');
+  if(_gallerySelected.size > 0) {
+    sendBtn.classList.add('visible');
+    sendBtn.textContent = `Gönder (${_gallerySelected.size})`;
+  } else {
+    sendBtn.classList.remove('visible');
+  }
+}
+
+function sendSelectedMedia() {
+  const selected = _galleryItems.filter(i => _gallerySelected.has(i.id));
+  closeInAppGallery();
+  if(selected.length === 1) {
+    openMeditor(selected[0].url, selected[0].type, selected[0].file);
+  } else {
+    // Send multiple directly
+    selected.forEach(item => {
+      const reader = new FileReader();
+      reader.onload = (e) => sendMessage(`[MEDIA:${item.type === 'video' ? 'video' : 'image'}]${e.target.result}[/MEDIA]`);
+      if(item.file) reader.readAsDataURL(item.file);
+    });
+  }
+}
+
+// ══════════════════════════════
+//  MEDIA EDITOR
+// ══════════════════════════════
+let _meditorSrc = '';
+let _meditorType = 'photo'; // 'photo' or 'video'
+let _meditorFile = null;
+let _meditorTool = 'draw';
+let _meditorColor = '#fff';
+let meditorBrushSize = 6;
+let _meditorDrawing = false;
+let _meditorLastX = 0, _meditorLastY = 0;
+let _meditorHistory = [];
+let _meditorBaseImg = null;
+let _meditorBaseCanvas = null;
+let _meditorTextEl = null;
+
+// Video trim
+let _trimStart = 0, _trimEnd = 1; // fractions
+let _trimDuration = 0;
+
+function openMeditor(src, type, file) {
+  _meditorSrc = src;
+  _meditorType = type;
+  _meditorFile = file || null;
+  _meditorHistory = [];
+  _meditorTool = type === 'video' ? null : 'draw';
+  
+  document.getElementById('mediaEditor').classList.add('open');
+  document.getElementById('meditorTitle').textContent = type === 'video' ? 'Video Düzenle' : 'Fotoğraf Düzenle';
+  
+  const canvas = document.getElementById('meditorCanvas');
+  const videoWrap = document.getElementById('meditorVideoWrap');
+  const videoTrim = document.getElementById('meditorVideoTrim');
+  
+  if(type === 'video') {
+    canvas.style.display = 'none';
+    videoWrap.style.display = 'flex';
+    videoTrim.classList.add('active');
+    // Hide drawing tools for video
+    document.getElementById('mtoolDraw').style.display = 'none';
+    document.getElementById('mtoolText').style.display = 'none';
+    document.getElementById('mtoolEmoji').style.display = 'none';
+    document.getElementById('meditorColors').style.display = 'none';
+    document.getElementById('meditorSizeSlider').parentElement.style.display = 'none';
+    
+    const vid = document.getElementById('meditorVideo');
+    vid.src = src;
+    vid.onloadedmetadata = () => {
+      _trimDuration = vid.duration;
+      _trimStart = 0; _trimEnd = 1;
+      _meditorUpdateTrimUI();
+    };
+    _meditorSetupTrimHandles();
+  } else {
+    canvas.style.display = 'block';
+    videoWrap.style.display = 'none';
+    videoTrim.classList.remove('active');
+    document.getElementById('mtoolDraw').style.display = '';
+    document.getElementById('mtoolText').style.display = '';
+    document.getElementById('mtoolEmoji').style.display = '';
+    document.getElementById('meditorColors').style.display = '';
+    document.getElementById('meditorSizeSlider').parentElement.style.display = '';
+    
+    const img = new Image();
+    img.onload = () => {
+      _meditorBaseImg = img;
+      _meditorResizeCanvas();
+      _meditorDrawBase();
+      _meditorSaveHistory();
+      _meditorAttachDrawEvents();
+    };
+    img.src = src;
+    setMeditorTool('draw');
+  }
+}
+
+function closeMeditor() {
+  document.getElementById('mediaEditor').classList.remove('open');
+  if(_meditorTextEl) { _meditorTextEl.remove(); _meditorTextEl = null; }
+  document.getElementById('meditorEmojiPicker').style.display = 'none';
+  const vid = document.getElementById('meditorVideo');
+  vid.pause(); vid.src = '';
+}
+
+function _meditorResizeCanvas() {
+  if(!_meditorBaseImg) return;
+  const wrap = document.getElementById('meditorCanvasWrap');
+  const canvas = document.getElementById('meditorCanvas');
+  const maxW = wrap.clientWidth - 20;
+  const maxH = wrap.clientHeight - 20;
+  const ratio = Math.min(maxW / _meditorBaseImg.width, maxH / _meditorBaseImg.height);
+  canvas.width = Math.round(_meditorBaseImg.width * ratio);
+  canvas.height = Math.round(_meditorBaseImg.height * ratio);
+}
+
+function _meditorDrawBase() {
+  const canvas = document.getElementById('meditorCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(_meditorBaseImg, 0, 0, canvas.width, canvas.height);
+}
+
+function _meditorSaveHistory() {
+  const canvas = document.getElementById('meditorCanvas');
+  _meditorHistory.push(canvas.toDataURL());
+  if(_meditorHistory.length > 20) _meditorHistory.shift();
+}
+
+function meditorUndo() {
+  if(_meditorHistory.length <= 1) { toast('Geri alınacak işlem yok'); return; }
+  _meditorHistory.pop();
+  const canvas = document.getElementById('meditorCanvas');
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.onload = () => ctx.drawImage(img, 0, 0);
+  img.src = _meditorHistory[_meditorHistory.length - 1];
+}
+
+function setMeditorTool(tool) {
+  _meditorTool = tool;
+  document.querySelectorAll('.meditor-tool').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('mtool' + tool.charAt(0).toUpperCase() + tool.slice(1));
+  if(btn) btn.classList.add('active');
+  
+  const canvas = document.getElementById('meditorCanvas');
+  canvas.style.cursor = tool === 'draw' ? 'crosshair' : tool === 'text' ? 'text' : tool === 'crop' ? 'crosshair' : 'default';
+  
+  if(tool === 'text') {
+    _meditorAddTextOverlay();
+  } else {
+    if(_meditorTextEl && tool !== 'text') {
+      _meditorBakeTextToCanvas();
+    }
+    document.getElementById('meditorEmojiPicker').style.display = 'none';
+  }
+  if(tool === 'emoji') {
+    _meditorShowEmojiPicker();
+  }
+}
+
+function setMeditorColor(color) {
+  _meditorColor = color;
+  document.querySelectorAll('.meditor-color').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  if(_meditorTextEl) _meditorTextEl.style.color = color;
+}
+
+function _meditorAttachDrawEvents() {
+  const canvas = document.getElementById('meditorCanvas');
+  let cropStartX, cropStartY, cropRect = null;
+  
+  const getPos = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+  };
+
+  const onDown = (e) => {
+    if(_meditorTool === 'emoji' || _meditorTool === 'text') return;
+    e.preventDefault();
+    const {x, y} = getPos(e);
+    _meditorDrawing = true;
+    _meditorLastX = x; _meditorLastY = y;
+    if(_meditorTool === 'crop') { cropStartX = x; cropStartY = y; }
+  };
+  
+  const onMove = (e) => {
+    if(!_meditorDrawing) return;
+    e.preventDefault();
+    const {x, y} = getPos(e);
+    const ctx = canvas.getContext('2d');
+    
+    if(_meditorTool === 'draw') {
+      ctx.beginPath();
+      ctx.moveTo(_meditorLastX, _meditorLastY);
+      ctx.lineTo(x, y);
+      ctx.strokeStyle = _meditorColor;
+      ctx.lineWidth = meditorBrushSize;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    } else if(_meditorTool === 'crop') {
+      // Show crop preview
+      const snapshot = _meditorHistory[_meditorHistory.length - 1];
+      const snapImg = new Image();
+      snapImg.onload = () => {
+        ctx.drawImage(snapImg, 0, 0);
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const cw = x - cropStartX, ch = y - cropStartY;
+        ctx.clearRect(cropStartX, cropStartY, cw, ch);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cropStartX, cropStartY, cw, ch);
+        cropRect = {x: cropStartX, y: cropStartY, w: cw, h: ch};
+      };
+      snapImg.src = snapshot;
+    }
+    _meditorLastX = x; _meditorLastY = y;
+  };
+  
+  const onUp = (e) => {
+    if(!_meditorDrawing) return;
+    _meditorDrawing = false;
+    if(_meditorTool === 'crop' && cropRect && Math.abs(cropRect.w) > 10 && Math.abs(cropRect.h) > 10) {
+      const tmpCanvas = document.createElement('canvas');
+      tmpCanvas.width = Math.abs(cropRect.w);
+      tmpCanvas.height = Math.abs(cropRect.h);
+      const tmpCtx = tmpCanvas.getContext('2d');
+      const snapshot = _meditorHistory[_meditorHistory.length - 1];
+      const snapImg = new Image();
+      snapImg.onload = () => {
+        tmpCtx.drawImage(snapImg, 
+          Math.min(cropRect.x, cropRect.x+cropRect.w), Math.min(cropRect.y, cropRect.y+cropRect.h), 
+          Math.abs(cropRect.w), Math.abs(cropRect.h),
+          0, 0, tmpCanvas.width, tmpCanvas.height
+        );
+        canvas.width = tmpCanvas.width; canvas.height = tmpCanvas.height;
+        const ctx2 = canvas.getContext('2d');
+        ctx2.drawImage(tmpCanvas, 0, 0);
+        _meditorSaveHistory();
+        cropRect = null;
+      };
+      snapImg.src = snapshot;
+    } else if(_meditorTool === 'draw') {
+      _meditorSaveHistory();
+    }
+  };
+
+  canvas.addEventListener('mousedown', onDown);
+  canvas.addEventListener('mousemove', onMove);
+  canvas.addEventListener('mouseup', onUp);
+  canvas.addEventListener('touchstart', onDown, {passive:false});
+  canvas.addEventListener('touchmove', onMove, {passive:false});
+  canvas.addEventListener('touchend', onUp);
+}
+
+function _meditorAddTextOverlay() {
+  if(_meditorTextEl) { _meditorTextEl.remove(); }
+  const wrap = document.getElementById('meditorCanvasWrap');
+  const inp = document.createElement('textarea');
+  inp.className = 'meditor-text-input';
+  inp.placeholder = 'Yazı yaz...';
+  inp.style.left = '20%';
+  inp.style.top = '40%';
+  inp.style.color = _meditorColor;
+  inp.rows = 1;
+  inp.oninput = () => { inp.style.height='auto'; inp.style.height=inp.scrollHeight+'px'; };
+  // Drag
+  let isDrag = false, startX, startY, initLeft, initTop;
+  inp.addEventListener('touchstart', (e) => {
+    if(e.target === inp && e.touches.length === 1) {
+      isDrag = true;
+      startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+      initLeft = inp.offsetLeft; initTop = inp.offsetTop;
+    }
+  });
+  inp.addEventListener('touchmove', (e) => {
+    if(isDrag) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      inp.style.left = (initLeft + dx) + 'px';
+      inp.style.top = (initTop + dy) + 'px';
+    }
+  }, {passive:false});
+  inp.addEventListener('touchend', () => isDrag = false);
+  wrap.appendChild(inp);
+  _meditorTextEl = inp;
+  setTimeout(() => inp.focus(), 100);
+}
+
+function _meditorBakeTextToCanvas() {
+  if(!_meditorTextEl || !_meditorTextEl.value.trim()) {
+    if(_meditorTextEl) { _meditorTextEl.remove(); _meditorTextEl = null; }
+    return;
+  }
+  const canvas = document.getElementById('meditorCanvas');
+  const ctx = canvas.getContext('2d');
+  const wrap = document.getElementById('meditorCanvasWrap');
+  const canvasRect = canvas.getBoundingClientRect();
+  const wrapRect = wrap.getBoundingClientRect();
+  const textRect = _meditorTextEl.getBoundingClientRect();
+  
+  const scaleX = canvas.width / canvasRect.width;
+  const scaleY = canvas.height / canvasRect.height;
+  const textX = (textRect.left - canvasRect.left) * scaleX;
+  const textY = (textRect.top - canvasRect.top) * scaleY;
+  
+  const fontSize = 24 * scaleX;
+  ctx.font = `700 ${fontSize}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillStyle = _meditorTextEl.style.color || '#fff';
+  ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 4;
+  
+  const lines = _meditorTextEl.value.split('\n');
+  lines.forEach((line, i) => ctx.fillText(line, textX + 8*scaleX, textY + (i+1)*(fontSize+4)));
+  ctx.shadowBlur = 0;
+  
+  _meditorTextEl.remove(); _meditorTextEl = null;
+  _meditorSaveHistory();
+}
+
+function _meditorShowEmojiPicker() {
+  const picker = document.getElementById('meditorEmojiPicker');
+  const emojis = ['😀','😂','❤️','🔥','👍','💯','🎉','✨','😎','🥰','😍','🤣','😢','😱','🙏','💪','🌟','🎊','🦋','🌈','🍕','🎵','🏆','💎','🌺','⚡','🌙','💫','🎯','🦄'];
+  const wrap = picker.querySelector('div');
+  wrap.innerHTML = '';
+  emojis.forEach(em => {
+    const btn = document.createElement('button');
+    btn.style.cssText = 'font-size:28px;background:none;border:none;cursor:pointer;padding:4px;';
+    btn.textContent = em;
+    btn.onclick = () => { _meditorPlaceEmoji(em); picker.style.display = 'none'; };
+    wrap.appendChild(btn);
+  });
+  picker.style.display = 'block';
+}
+
+function _meditorPlaceEmoji(em) {
+  const canvas = document.getElementById('meditorCanvas');
+  const ctx = canvas.getContext('2d');
+  const size = Math.round(canvas.width * 0.12);
+  ctx.font = `${size}px serif`;
+  ctx.fillText(em, canvas.width/2 - size/2, canvas.height/2 + size/4);
+  _meditorSaveHistory();
+}
+
+async function sendEditedMedia() {
+  closeMeditor();
+  if(_meditorType === 'video') {
+    // For video, just send the original (browser can't trim easily without FFmpeg)
+    if(_meditorFile) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if(e.target.result.length > 4 * 1024 * 1024) { toast('Video çok büyük (Maks. ~3MB)'); return; }
+        sendMessage(`[MEDIA:video]${e.target.result}[/MEDIA]`);
+      };
+      reader.readAsDataURL(_meditorFile);
+    } else {
+      // blob URL
+      const resp = await fetch(_meditorSrc);
+      const blob = await resp.blob();
+      if(blob.size > 4 * 1024 * 1024) { toast('Video çok büyük (Maks. ~3MB)'); return; }
+      const reader = new FileReader();
+      reader.onload = (e) => sendMessage(`[MEDIA:video]${e.target.result}[/MEDIA]`);
+      reader.readAsDataURL(blob);
+    }
+  } else {
+    const canvas = document.getElementById('meditorCanvas');
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+    if(dataUrl.length > 3 * 1024 * 1024) { toast('Görsel çok büyük. Kırparak küçültün.'); return; }
+    sendMessage(`[MEDIA:image]${dataUrl}[/MEDIA]`);
+  }
+}
+
+// Video trim UI
+function _meditorUpdateTrimUI() {
+  const bar = document.getElementById('trimBar');
+  if(!bar || !_trimDuration) return;
+  const leftPct = _trimStart * 100;
+  const rightPct = (1 - _trimEnd) * 100;
+  document.getElementById('trimFill').style.left = leftPct + '%';
+  document.getElementById('trimFill').style.right = rightPct + '%';
+  document.getElementById('trimHandleLeft').style.left = leftPct + '%';
+  document.getElementById('trimHandleRight').style.right = rightPct + '%';
+  const startSec = _trimStart * _trimDuration;
+  const endSec = _trimEnd * _trimDuration;
+  document.getElementById('trimStartLabel').textContent = _secToTime(startSec);
+  document.getElementById('trimEndLabel').textContent = _secToTime(endSec);
+}
+
+function _secToTime(s) {
+  const m = Math.floor(s / 60); const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+
+function _meditorSetupTrimHandles() {
+  const bar = document.getElementById('trimBar');
+  if(!bar) return;
+  
+  const onDrag = (handle, e) => {
+    e.preventDefault();
+    const barRect = bar.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    let pct = (clientX - barRect.left) / barRect.width;
+    pct = Math.max(0, Math.min(1, pct));
+    if(handle === 'left') {
+      _trimStart = Math.min(pct, _trimEnd - 0.05);
+    } else {
+      _trimEnd = Math.max(pct, _trimStart + 0.05);
+    }
+    _meditorUpdateTrimUI();
+    const vid = document.getElementById('meditorVideo');
+    if(vid && _trimDuration) vid.currentTime = (handle === 'left' ? _trimStart : _trimEnd) * _trimDuration;
+  };
+  
+  ['Left','Right'].forEach(side => {
+    const h = document.getElementById('trimHandle' + side);
+    const type = side.toLowerCase();
+    h.addEventListener('touchstart', (e) => {
+      const mm = (e) => onDrag(type, e);
+      const mu = () => { document.removeEventListener('touchmove', mm); document.removeEventListener('touchend', mu); };
+      document.addEventListener('touchmove', mm, {passive:false});
+      document.addEventListener('touchend', mu);
+    });
+    h.addEventListener('mousedown', (e) => {
+      const mm = (e) => onDrag(type, e);
+      const mu = () => { document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); };
+      document.addEventListener('mousemove', mm);
+      document.addEventListener('mouseup', mu);
+    });
+  });
+}
+
+// Also update old handleChatMediaSelect to open editor instead of sending directly
+const _origHandleChatMediaSelect = window.handleChatMediaSelect;
+window.handleChatMediaSelect = function(input) {
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 4 * 1024 * 1024) { toast('Dosya çok büyük (Maks 4MB)'); return; }
+  const url = URL.createObjectURL(file);
+  const type = file.type.startsWith('video') ? 'video' : 'photo';
+  document.getElementById('attachmentMenu').style.display = 'none';
+  input.value = '';
+  openMeditor(url, type, file);
+};
 </script>
 
 </body>
