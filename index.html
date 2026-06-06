@@ -2480,9 +2480,15 @@ function showScreen(id){
 window.addEventListener('DOMContentLoaded',async()=>{
   setupOTPInputs();
   applyChatBg();
-  
+
+  const savedTheme = localStorage.getItem('yam-theme');
+  if(savedTheme === 'dark'){
+    document.documentElement.setAttribute('data-theme','dark');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
   document.getElementById('keyboardSelect').value = currentKeyboardTheme;
-  document.getElementById('darkToggle').checked = (localStorage.getItem('yam-theme') === 'dark');
+  document.getElementById('darkToggle').checked = (savedTheme === 'dark');
 
   const {data:{session}}=await db.auth.getSession();
   if(session){
