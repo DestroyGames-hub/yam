@@ -2306,27 +2306,18 @@ function switchChat(target, type){
   cancelReply();
   cancelEdit();
   closeReactionPicker();
-  // Presence'ı güncelle: hangi sohbette olduğumuzu yayınla
-  presenceChannel?.track({username: myUsername, activeChat: target});
+
   loadMessages();
 }
 
 function markConversationRead(convKey) {
   if (!convKey) return;
-  // En son mesaj ID'sini bul
-  const msgs = loadedMessagesList.filter(m => {
-    const p = parseMessage(m);
-    if (p.isDM) return (m.username === myUsername && p.recipient === convKey) || (m.username === convKey && p.recipient === myUsername);
-    if (p.groupId) return p.groupId === convKey;
-    return false;
-  });
-  if (!msgs.length) return;
-  const lastId = Math.max(...msgs.map(m => m.id));
   const seenKeys = JSON.parse(localStorage.getItem('yam-seen-' + myUsername) || '{}');
-  seenKeys[convKey] = lastId;
+  seenKeys[convKey] = new Date().toISOString();
   localStorage.setItem('yam-seen-' + myUsername, JSON.stringify(seenKeys));
   unreadCounts[convKey] = 0;
   updateContactsPanel();
+  _broadcastReadReceipt(convKey);
 }
 
 function closeChat() {
@@ -2340,8 +2331,7 @@ function closeChat() {
   closeReactionPicker();
   updateHeaderState();
   updateContactsPanel();
-  // Presence'ı güncelle: sohbetten çıkıldı
-  presenceChannel?.track({username: myUsername, activeChat: ''});
+
 }
 
 // ── START APP ──
@@ -2818,6 +2808,7 @@ async function initChat(){
   await loadMessages();
   subscribeMessages();
   setupPresence();
+  _initReadReceiptChannel();
   setupInput();
 }
 
@@ -2888,7 +2879,6 @@ function rebuildLastMessageCache() {
   const seenKeys = JSON.parse(localStorage.getItem('yam-seen-' + myUsername) || '{}');
   loadedMessagesList.forEach(m => {
     updateLastMessageCache(m);
-    // Okunmamış sayım: karşı tarafın mesajları, son görülen ID'den sonrası
     const p = parseMessage(m);
     if (m.username === myUsername) return; // Kendi mesajlarım okunmuş sayılır
     let convKey = null;
@@ -2898,8 +2888,9 @@ function rebuildLastMessageCache() {
       if (g && g.members && g.members.includes(myUsername)) convKey = p.groupId;
     }
     if (!convKey) return;
-    const lastSeenId = seenKeys[convKey] || 0;
-    if (m.id > lastSeenId) {
+    const lastSeenTs = seenKeys[convKey] || null;
+    // Hiç görülmemişse veya mesaj görme zamanından sonraysa okunmamış say
+    if (!lastSeenTs || new Date(m.created_at) > new Date(lastSeenTs)) {
       unreadCounts[convKey] = (unreadCounts[convKey] || 0) + 1;
     }
   });
@@ -3031,33 +3022,8 @@ function subscribeMessages(){
           const row = makeRow(m,parsed.cleanText,parsed.reaction);
           document.getElementById('messages').appendChild(row);
           window.requestAnimationFrame(() => scrollBot());
-          // Kendi gönderdiğim yeni mesajın tick durumunu hemen kontrol et
-          if (m.username === myUsername) {
-            setTimeout(() => {
-              if (parsed.isDM) {
-                const theirData = onlineUsers[parsed.recipient];
-                const theyAreHere = theirData && theirData.activeChat === myUsername;
-                const hasReceipt = readReceiptsCache[parsed.recipient];
-                const tick = document.getElementById('tick-' + m.id);
-                if (tick) {
-                  if (theyAreHere || hasReceipt) {
-                    tick.textContent = '✓✓'; tick.classList.add('read'); tick.classList.remove('partial');
-                  } else {
-                    tick.textContent = '✓'; tick.classList.remove('read','partial');
-                  }
-                }
-              } else if (parsed.groupId) {
-                const group = groupsList.find(g => g.id === parsed.groupId);
-                if (group && group.members) {
-                  const otherMembers = group.members.filter(u => u !== myUsername);
-                  const activeSet = groupActiveMembersCache[parsed.groupId] || new Set();
-                  const activeCount = [...activeSet].filter(u => otherMembers.includes(u)).length;
-                  const tick = document.getElementById('tick-' + m.id);
-                  if (tick) _setTickState(tick, activeCount, otherMembers.length);
-                }
-              }
-            }, 50);
-          }
+          // Kendi gönderdiğim yeni mesajın tick durumu: varsayılan ✓ (DM) veya √ (grup)
+          // Karşı taraf okuyunca broadcast ile güncellenecek
       }
       if(m.username!==myUsername){
         if(parsed.isDM&&parsed.recipient===myUsername){
@@ -3098,34 +3064,6 @@ function setupPresence(){
       const state=presenceChannel.presenceState();
       onlineUsers={};
       for(const k in state){const u=state[k][0];onlineUsers[u.username]=u;}
-
-      // Grup active üye cache'ini yeniden oluştur
-      groupActiveMembersCache = {};
-      for (const username in onlineUsers) {
-        if (username === myUsername) continue;
-        const ud = onlineUsers[username];
-        const ac = ud.activeChat || '';
-        if (!ac) continue;
-
-        // DM: bu kişi benimle DM'de mi?
-        if (ac === myUsername) {
-          readReceiptsCache[username] = Date.now();
-          _refreshDmTicks(username);
-        }
-
-        // GRUP: bu kişi bir grupta mı?
-        const grp = groupsList.find(g => g.id === ac);
-        if (grp && grp.members && grp.members.includes(myUsername)) {
-          if (!groupActiveMembersCache[ac]) groupActiveMembersCache[ac] = new Set();
-          groupActiveMembersCache[ac].add(username);
-        }
-      }
-
-      // Açık grup sohbeti varsa tick'leri güncelle
-      if (currentChatType === 'group' && currentChat) {
-        _refreshGroupTicks(currentChat);
-      }
-
       updateContactsPanel();
       if(currentChat) updateHeaderState();
     })
@@ -3133,11 +3071,61 @@ function setupPresence(){
       if(payload.username!==myUsername)updateTyping(payload.username,payload.typing);
     })
     .subscribe(async status=>{
-      if(status==='SUBSCRIBED') await presenceChannel.track({username:myUsername, activeChat: currentChat || ''});
+      if(status==='SUBSCRIBED') await presenceChannel.track({username:myUsername});
     });
 }
 
-// ── TİCK YARDIMCI FONKSİYONLARI ──
+// ── TİCK & OKUNDU SİSTEMİ ──
+// Broadcast kanalı: "read-receipts" — gerçek zamanlı okundu bildirimi
+let _readChannel = null;
+
+function _initReadReceiptChannel() {
+  _readChannel = db.channel('yam-read-receipts')
+    .on('broadcast', { event: 'read' }, ({ payload }) => {
+      // payload: { reader: username, convKey: 'dm-partnerUsername' veya 'grp-groupId', ts: ISO }
+      const { reader, convKey, ts } = payload;
+      if (reader === myUsername) return;
+
+      if (convKey.startsWith('dm-')) {
+        // DM: karşı taraf bizim mesajlarımızı okudu
+        const partner = convKey.slice(3);
+        if (partner !== myUsername) return; // bize gelen değilse ignore
+        readReceiptsCache[reader] = ts;
+        if (currentChatType === 'dm' && currentChat === reader) {
+          document.querySelectorAll('.mrow.mine .btick').forEach(tick => {
+            tick.textContent = '✓✓';
+            tick.classList.add('read');
+            tick.classList.remove('partial');
+          });
+        }
+      } else if (convKey.startsWith('grp-')) {
+        // GRUP: biri grubu okudu
+        const groupId = convKey.slice(4);
+        const group = groupsList.find(g => g.id === groupId);
+        if (!group || !group.members || !group.members.includes(myUsername)) return;
+        // Bu kullanıcıyı grupta aktif olarak işaretle
+        if (!groupActiveMembersCache[groupId]) groupActiveMembersCache[groupId] = new Set();
+        groupActiveMembersCache[groupId].add(reader);
+        if (currentChatType === 'group' && currentChat === groupId) {
+          _refreshGroupTicks(groupId);
+        }
+      }
+    })
+    .subscribe();
+}
+
+function _broadcastReadReceipt(convKey) {
+  if (!_readChannel || !myUsername) return;
+  let bcastKey = '';
+  if (currentChatType === 'dm') bcastKey = 'dm-' + myUsername; // "ben, myUsername'in mesajlarını okudum"
+  else if (currentChatType === 'group') bcastKey = 'grp-' + convKey;
+  else return;
+  _readChannel.send({
+    type: 'broadcast',
+    event: 'read',
+    payload: { reader: myUsername, convKey: bcastKey, ts: new Date().toISOString() }
+  });
+}
 
 // Belirli bir DM ortağının mesajlarının tick durumunu güncelle
 function _refreshDmTicks(partnerUsername) {
@@ -3158,7 +3146,6 @@ function _refreshGroupTicks(groupId) {
   const activeSet = groupActiveMembersCache[groupId] || new Set();
   const activeCount = [...activeSet].filter(u => otherMembers.includes(u)).length;
   const totalOthers = otherMembers.length;
-
   document.querySelectorAll('.mrow.mine .btick').forEach(tick => {
     _setTickState(tick, activeCount, totalOthers);
   });
@@ -3184,16 +3171,17 @@ function _applyTickStates() {
   if (!currentChat) return;
 
   if (currentChatType === 'dm') {
-    const theirData = onlineUsers[currentChat];
-    const theyAreHere = theirData && theirData.activeChat === myUsername;
     const hasReceipt = readReceiptsCache[currentChat];
-    const isRead = theyAreHere || !!hasReceipt;
     document.querySelectorAll('.mrow.mine .btick').forEach(tick => {
-      tick.textContent = isRead ? '✓✓' : '✓';
-      tick.classList.toggle('read', isRead);
-      tick.classList.remove('partial');
+      if (hasReceipt) {
+        tick.textContent = '✓✓';
+        tick.classList.add('read');
+        tick.classList.remove('partial');
+      } else {
+        tick.textContent = '✓';
+        tick.classList.remove('read', 'partial');
+      }
     });
-
   } else if (currentChatType === 'group') {
     const group = groupsList.find(g => g.id === currentChat);
     if (!group || !group.members) return;
