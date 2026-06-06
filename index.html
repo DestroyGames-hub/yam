@@ -3406,7 +3406,8 @@ function subscribeMessages(){
       if(m.username!==myUsername){
         if(parsed.isDM&&parsed.recipient===myUsername){
           const displayName = getDisplayName(m.username);
-          sendNotification('💌 '+ displayName, parsed.cleanText);
+          const notifBody = parsed.cleanText.match(/^\[LOCKED:/) ? '🔒 Kilitli Mesaj' : parsed.cleanText;
+          sendNotification('💌 '+ displayName, notifBody);
           if(currentChat!==m.username)toast('💌 '+displayName+' size mesaj gönderdi!');
         }
       }
