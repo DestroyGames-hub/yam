@@ -1907,36 +1907,7 @@ position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--
     <button class="auth-btn secondary" style="margin-bottom:14px; padding:12px; font-size:14px;" onclick="document.getElementById('storyMedia').click()">📷 Fotoğraf / Video Ekle</button>
     <input type="file" id="storyMedia" accept="image/*,video/*" style="display:none" onchange="handleMediaSelect(this)">
 
-    <!-- ZEİTKAPSEL (Zaman Kapsülü) SEÇENEĞİ -->
-    <div style="border:2px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px;background:var(--bg);">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:18px;">⏳</span>
-          <div>
-            <div style="font-size:13px;font-weight:700;color:var(--text);">Dijital Zaman Kapsülü</div>
-            <div style="font-size:11px;color:var(--muted);">Gelecekte açılsın, şimdi kilitli kalsın</div>
-          </div>
-        </div>
-        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;">
-          <input type="checkbox" id="storyTimeCapsuleToggle" onchange="toggleStoryCapsuleUI()" style="opacity:0;width:0;height:0;">
-          <span id="storyTimeCapsuleSlider" style="position:absolute;inset:0;background:var(--border);border-radius:12px;transition:.3s;"></span>
-          <span id="storyTimeCapsuleThumb" style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></span>
-        </label>
-      </div>
-      <div id="storyCapsuleOptions" style="display:none;">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;" id="capsulePresets">
-          <button class="capsule-preset-btn" onclick="selectCapsulePreset(this,'1w')" style="padding:6px 12px;border-radius:20px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit;">1 Hafta</button>
-          <button class="capsule-preset-btn" onclick="selectCapsulePreset(this,'1m')" style="padding:6px 12px;border-radius:20px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit;">1 Ay</button>
-          <button class="capsule-preset-btn" onclick="selectCapsulePreset(this,'3m')" style="padding:6px 12px;border-radius:20px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit;">3 Ay</button>
-          <button class="capsule-preset-btn" onclick="selectCapsulePreset(this,'6m')" style="padding:6px 12px;border-radius:20px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit;">6 Ay</button>
-          <button class="capsule-preset-btn" onclick="selectCapsulePreset(this,'1y')" style="padding:6px 12px;border-radius:20px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit;">1 Yıl</button>
-        </div>
-        <input type="datetime-local" id="capsuleCustomDate" style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:13px;color:var(--text);background:var(--surface);outline:none;transition:border-color .2s;" oninput="onCapsuleCustomDate(this)">
-        <div id="capsuleInfoText" style="font-size:11px;color:var(--primary);margin-top:8px;font-weight:600;text-align:center;"></div>
-      </div>
-    </div>
-
-    <button class="modal-btn" id="storyPostBtn" onclick="postStory()">Paylaş ✨</button>
+    <button class="modal-btn" onclick="postStory()">Paylaş ✨</button>
     <!-- Geliştirilmiş İptal/Vazgeç Butonu -->
     <button class="modal-btn" style="background:var(--border); color:var(--text); box-shadow:none; margin-top:10px;" onclick="closeAddStory()">Vazgeç</button>
   </div>
@@ -2510,15 +2481,8 @@ window.addEventListener('DOMContentLoaded',async()=>{
   setupOTPInputs();
   applyChatBg();
   
-  // Kaydedilen temayı uygula
-  const savedTheme = localStorage.getItem('yam-theme');
-  if(savedTheme === 'dark') {
-    document.documentElement.setAttribute('data-theme', 'dark');
-  } else {
-    document.documentElement.removeAttribute('data-theme');
-  }
   document.getElementById('keyboardSelect').value = currentKeyboardTheme;
-  document.getElementById('darkToggle').checked = (savedTheme === 'dark');
+  document.getElementById('darkToggle').checked = (localStorage.getItem('yam-theme') === 'dark');
 
   const {data:{session}}=await db.auth.getSession();
   if(session){
@@ -3816,12 +3780,15 @@ async function sendMessage(customText = null){
   if(replyingToMessage) {
     const replyParsed = parseMessage(replyingToMessage);
     let previewText = replyParsed.cleanText;
+    // Medya/ses/konum için label yerine gerçek içeriği taşı (render tarafı zaten halleder)
     if(previewText.startsWith('[AUDIO]') && previewText.endsWith('[/AUDIO]')) {
       previewText = '🎤 Sesli Mesaj';
     } else if (previewText.startsWith('[LOCATION]') || previewText.startsWith('[LIVE_LOCATION]')) {
       previewText = '📍 Konum';
     } else if (previewText.includes('[MEDIA:')) {
-      previewText = '📷 Medya';
+      // Medyayı tam olarak taşı — render fonksiyonu thumbnail gösterecek
+      // Ama çok uzun olduğundan sadece src'yi değil tam etiketle gönder
+      previewText = previewText; // olduğu gibi bırak
     }
     text = `[REPLY:${replyingToMessage.id}]${replyingToMessage.username}|${previewText}[/REPLY]${text}`;
     cancelReply();
@@ -3841,21 +3808,50 @@ function triggerReply(m, cleanText) {
   document.getElementById('replyPreviewSender').textContent = getDisplayName(m.username);
   
   let dispText = cleanText;
+  let previewMedia = '';
+  
   if(dispText.startsWith('[AUDIO]') && dispText.endsWith('[/AUDIO]')) {
     dispText = '🎤 Sesli Mesaj';
   } else if (dispText.startsWith('[LOCATION]') || dispText.startsWith('[LIVE_LOCATION]')) {
     dispText = '📍 Konum';
   } else if (dispText.includes('[MEDIA:')) {
-    dispText = '📷 Medya';
+    const mMatch = dispText.match(/\[MEDIA:(image|video)\](.*?)\[\/MEDIA\]/);
+    if (mMatch) {
+      const type = mMatch[1], src = mMatch[2];
+      if (type === 'video') {
+        dispText = '🎥 Video';
+        previewMedia = `<video src="${src}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex-shrink:0;" muted></video>`;
+      } else {
+        dispText = '📷 Fotoğraf';
+        previewMedia = `<img src="${src}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex-shrink:0;">`;
+      }
+    } else {
+      dispText = '📷 Medya';
+    }
   }
   
-  document.getElementById('replyPreviewText').textContent = dispText;
+  const previewTextEl = document.getElementById('replyPreviewText');
+  previewTextEl.textContent = dispText;
+  
+  // Medya thumbnail varsa yanıt çubuğuna ekle
+  const existingThumb = document.getElementById('replyPreviewThumb');
+  if(existingThumb) existingThumb.remove();
+  if(previewMedia) {
+    const thumbWrap = document.createElement('div');
+    thumbWrap.id = 'replyPreviewThumb';
+    thumbWrap.innerHTML = previewMedia;
+    thumbWrap.style.cssText = 'margin-left:auto;flex-shrink:0;';
+    document.getElementById('replyPreviewBar').querySelector('div').after(thumbWrap);
+  }
+  
   document.getElementById('msgInput').focus();
 }
 
 function cancelReply() {
   replyingToMessage = null;
   document.getElementById('replyPreviewBar').style.display = 'none';
+  const t = document.getElementById('replyPreviewThumb');
+  if(t) t.remove();
 }
 
 // MESAJ DÜZENLEME MENÜSÜ VE İŞLEMLERİ
@@ -4028,6 +4024,200 @@ function playVoiceMessage(btn, audioSrc) {
   }
 }
 
+// ── YENİ SES OYNATICI (Pin Destekli) ──
+const _voiceAudios = {}; // bubbleId → Audio
+
+function voiceTogglePlay(bubbleId) {
+  const el = document.getElementById(bubbleId);
+  if(!el) return;
+  const src = el.dataset.src;
+  const btn = el.querySelector('.voice-play-btn');
+  const fill = document.getElementById('vpf_' + bubbleId);
+  const durEl = document.getElementById('vdur_' + bubbleId);
+
+  if(!_voiceAudios[bubbleId]) {
+    const audio = new Audio(src);
+    _voiceAudios[bubbleId] = audio;
+    audio.addEventListener('loadedmetadata', () => {
+      if(durEl) durEl.textContent = _fmtAudioTime(audio.duration);
+    });
+    audio.addEventListener('timeupdate', () => {
+      const pct = (audio.currentTime / audio.duration) * 100;
+      if(fill) fill.style.width = pct + '%';
+      if(durEl) durEl.textContent = _fmtAudioTime(audio.currentTime);
+    });
+    audio.addEventListener('ended', () => {
+      if(btn) btn.textContent = '▶️';
+      if(fill) fill.style.width = '0%';
+      if(durEl) {
+        const dur = audio.duration;
+        durEl.textContent = _fmtAudioTime(dur);
+      }
+    });
+  }
+  const audio = _voiceAudios[bubbleId];
+  if(audio.paused) { audio.play(); if(btn) btn.textContent = '⏸️'; }
+  else { audio.pause(); if(btn) btn.textContent = '▶️'; }
+}
+
+function voiceSeek(bubbleId, event) {
+  const bar = document.getElementById('vpc_' + bubbleId);
+  const audio = _voiceAudios[bubbleId];
+  if(!bar || !audio || !audio.duration) return;
+  const rect = bar.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+  audio.currentTime = pct * audio.duration;
+}
+
+function _fmtAudioTime(s) {
+  if(!s || isNaN(s)) return '0:00';
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return m + ':' + sec.toString().padStart(2, '0');
+}
+
+// ── SES İĞNE NOTLARI ──
+// Depolama: localStorage'da 'yam-vpins-<msgId>' → [{ts, emoji, text, author}]
+function _getVoicePins(msgId) {
+  try { return JSON.parse(localStorage.getItem('yam-vpins-' + msgId) || '[]'); } catch { return []; }
+}
+function _saveVoicePins(msgId, pins) {
+  localStorage.setItem('yam-vpins-' + msgId, JSON.stringify(pins));
+}
+
+function renderVoicePins(bubbleId, msgId) {
+  const pinBar = document.getElementById('vpin_' + bubbleId);
+  const pinList = document.getElementById('vpins_list_' + bubbleId);
+  if(!pinBar || !pinList) return;
+
+  const pins = _getVoicePins(msgId);
+  if(!pins.length) { pinBar.innerHTML = ''; pinList.innerHTML = ''; return; }
+
+  // Duration'u al — audio yüklü mü?
+  const audio = _voiceAudios[bubbleId];
+  const duration = audio?.duration || 0;
+
+  // Progress bar üzerindeki iğneler
+  pinBar.innerHTML = pins.map((p, i) => {
+    const pct = duration > 0 ? (p.ts / duration * 100) : 0;
+    return `<div onclick="event.stopPropagation(); voiceJumpToPin('${bubbleId}', ${p.ts})" title="${esc(p.text || p.emoji)}" style="position:absolute;left:${pct}%;top:-8px;transform:translateX(-50%);font-size:14px;cursor:pointer;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));z-index:2;">${p.emoji || '📌'}</div>`;
+  }).join('');
+
+  // Alt listede göster
+  pinList.innerHTML = pins.map((p, i) => {
+    const timeStr = _fmtAudioTime(p.ts);
+    const isMe = p.author === myUsername;
+    return `<div onclick="voiceJumpToPin('${bubbleId}', ${p.ts})" style="display:flex;align-items:center;gap:5px;background:rgba(0,0,0,0.08);border-radius:10px;padding:3px 8px;cursor:pointer;max-width:100%;transition:background .15s;" onmouseover="this.style.background='rgba(0,0,0,0.16)'" onmouseout="this.style.background='rgba(0,0,0,0.08)'">
+      <span style="font-size:14px;flex-shrink:0;">${p.emoji || '📌'}</span>
+      <span style="font-size:10px;font-weight:700;color:var(--primary);flex-shrink:0;">${timeStr}</span>
+      <span style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">${esc(p.text || '')}</span>
+      ${isMe ? `<span onclick="event.stopPropagation();deleteVoicePin('${bubbleId}','${msgId}',${i})" style="font-size:10px;cursor:pointer;opacity:0.5;flex-shrink:0;margin-left:2px;">✕</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function voiceJumpToPin(bubbleId, ts) {
+  const audio = _voiceAudios[bubbleId];
+  if(!audio) { voiceTogglePlay(bubbleId); setTimeout(() => voiceJumpToPin(bubbleId, ts), 200); return; }
+  audio.currentTime = ts;
+  if(audio.paused) { audio.play(); const btn = document.getElementById(bubbleId)?.querySelector('.voice-play-btn'); if(btn) btn.textContent = '⏸️'; }
+}
+
+function deleteVoicePin(bubbleId, msgId, idx) {
+  const pins = _getVoicePins(msgId);
+  pins.splice(idx, 1);
+  _saveVoicePins(msgId, pins);
+  renderVoicePins(bubbleId, msgId);
+}
+
+// İğne ekleme modalı
+let _pinTargetBubbleId = null, _pinTargetMsgId = null;
+
+function openVoicePin(bubbleId) {
+  const el = document.getElementById(bubbleId);
+  if(!el) return;
+  _pinTargetBubbleId = bubbleId;
+  _pinTargetMsgId = el.dataset.msgid;
+
+  const audio = _voiceAudios[bubbleId];
+  const currentTs = audio ? audio.currentTime : 0;
+  const timeStr = _fmtAudioTime(currentTs);
+
+  // Modalı oluştur
+  let modal = document.getElementById('voicePinModal');
+  if(!modal) {
+    modal = document.createElement('div');
+    modal.id = 'voicePinModal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;';
+    modal.onclick = (e) => { if(e.target===modal) closeVoicePinModal(); };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div style="background:var(--surface);border-radius:24px 24px 0 0;padding:24px 20px 36px;width:100%;max-width:500px;" onclick="event.stopPropagation()">
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;">📌 Nota İğnele</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Ses kaydının <b style="color:var(--primary);">${timeStr}</b> saniyesine not eklenecek</div>
+      <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Emoji seç</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        ${['📌','❤️','🔥','💡','⚠️','❓','✅','🎯','😂','😮'].map(e => `<span onclick="selectPinEmoji('${e}')" id="pem_${e}" style="font-size:24px;cursor:pointer;padding:6px;border-radius:10px;border:2px solid var(--border);transition:.15s;">${e}</span>`).join('')}
+      </div>
+      <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Not (isteğe bağlı)</div>
+      <input id="voicePinText" type="text" placeholder="Buradaki adresi anlamadım..." maxlength="80"
+        style="width:100%;border:2px solid var(--border);border-radius:12px;padding:11px 14px;font-family:inherit;font-size:14px;color:var(--text);background:var(--bg);outline:none;margin-bottom:16px;transition:border-color .2s;"
+        onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'"
+        onkeydown="if(event.key==='Enter')saveVoicePin()">
+      <button onclick="saveVoicePin()" style="width:100%;background:var(--gradient);border:none;border-radius:14px;padding:14px;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;">İğnele 📌</button>
+      <button onclick="closeVoicePinModal()" style="width:100%;background:none;border:none;padding:10px;color:var(--muted);font-family:inherit;font-size:14px;cursor:pointer;margin-top:6px;">Vazgeç</button>
+    </div>`;
+  modal.style.display = 'flex';
+  modal._currentTs = currentTs;
+  modal._selectedEmoji = '📌';
+  // İlk emojiyi seçili göster
+  setTimeout(() => {
+    const first = document.getElementById('pem_📌');
+    if(first) first.style.background = 'var(--primary-light)', first.style.borderColor = 'var(--primary)';
+    document.getElementById('voicePinText')?.focus();
+  }, 50);
+}
+
+function selectPinEmoji(emoji) {
+  document.querySelectorAll('[id^="pem_"]').forEach(el => {
+    el.style.background = ''; el.style.borderColor = 'var(--border)';
+  });
+  const el = document.getElementById('pem_' + emoji);
+  if(el) { el.style.background = 'var(--primary-light)'; el.style.borderColor = 'var(--primary)'; }
+  const modal = document.getElementById('voicePinModal');
+  if(modal) modal._selectedEmoji = emoji;
+}
+
+function saveVoicePin() {
+  const modal = document.getElementById('voicePinModal');
+  if(!modal || !_pinTargetMsgId) return;
+  const ts = modal._currentTs || 0;
+  const emoji = modal._selectedEmoji || '📌';
+  const text = (document.getElementById('voicePinText')?.value || '').trim();
+  const pins = _getVoicePins(_pinTargetMsgId);
+  pins.push({ ts, emoji, text, author: myUsername });
+  pins.sort((a, b) => a.ts - b.ts);
+  _saveVoicePins(_pinTargetMsgId, pins);
+  closeVoicePinModal();
+  // Audio yüklü değilse önce yükle
+  const audio = _voiceAudios[_pinTargetBubbleId];
+  if(audio && audio.duration) {
+    renderVoicePins(_pinTargetBubbleId, _pinTargetMsgId);
+  } else {
+    // Audio henüz yüklenmediyse, oynat-durdur ile yükle
+    voiceTogglePlay(_pinTargetBubbleId);
+    setTimeout(() => { voiceTogglePlay(_pinTargetBubbleId); renderVoicePins(_pinTargetBubbleId, _pinTargetMsgId); }, 400);
+  }
+  toast('Not iğnelendi ✓');
+}
+
+function closeVoicePinModal() {
+  const modal = document.getElementById('voicePinModal');
+  if(modal) modal.style.display = 'none';
+  _pinTargetBubbleId = null; _pinTargetMsgId = null;
+}
+
 function makeRow(m, cleanText, reaction) {
   // Benden silinmiş mesajları gösterme
   const deletedKey = 'yam_deleted_' + myUsername;
@@ -4139,11 +4329,31 @@ function makeRow(m, cleanText, reaction) {
     const originalMsgText = quotedReplyMatchNew[3];
     const replyActualText = quotedReplyMatchNew[4];
     
+    // Alıntı içeriği — medya ise thumbnail göster
+    let quoteInner = '';
+    if (originalMsgText.includes('[MEDIA:')) {
+      const mMatch = originalMsgText.match(/\[MEDIA:(image|video)\](.*?)\[\/MEDIA\]/);
+      if (mMatch) {
+        const type = mMatch[1], src = mMatch[2];
+        if (type === 'video') {
+          quoteInner = `<video src="${src}" class="story-quote-media" muted></video><div class="story-quote-text"><b>${esc(getDisplayName(originalSender))}</b> — 🎥 Video</div>`;
+        } else {
+          quoteInner = `<img src="${src}" class="story-quote-media"><div class="story-quote-text"><b>${esc(getDisplayName(originalSender))}</b> — 📷 Fotoğraf</div>`;
+        }
+      }
+    } else if (originalMsgText === '🎤 Sesli Mesaj' || originalMsgText.startsWith('[AUDIO]')) {
+      quoteInner = `<div class="story-quote-text"><b>${esc(getDisplayName(originalSender))}</b> — 🎤 Sesli Mesaj</div>`;
+    } else if (originalMsgText === '📍 Konum' || originalMsgText.startsWith('[LOCATION]')) {
+      quoteInner = `<div class="story-quote-text"><b>${esc(getDisplayName(originalSender))}</b> — 📍 Konum</div>`;
+    } else {
+      quoteInner = `<div class="story-quote-text"><b>${esc(getDisplayName(originalSender))}:</b> ${esc(originalMsgText)}</div>`;
+    }
+    
     finalBodyHtml = `
       <div class="story-quote" style="border-left-color: var(--primary); cursor: pointer;" onclick="scrollToMsg('${origMsgId}')">
-        <div class="story-quote-text"><b>${esc(getDisplayName(originalSender))}:</b> ${esc(originalMsgText)}</div>
+        ${quoteInner}
       </div>
-      <div class="btext">${esc(replyActualText)}</div>
+      <div class="btext">${fmtText(replyActualText)}</div>
     `;
   } else if (quotedReplyMatchOld) {
     const originalSender = quotedReplyMatchOld[1];
@@ -4158,15 +4368,23 @@ function makeRow(m, cleanText, reaction) {
     `;
   } else if(cleanText && cleanText.startsWith('[AUDIO]') && cleanText.endsWith('[/AUDIO]')) {
     const audioDataUrl = cleanText.substring(7, cleanText.length - 8);
+    const bubbleId = 'vb_' + m.id;
     finalBodyHtml = `
-      <div class="voice-bubble-player">
-        <button class="voice-play-btn" onclick="playVoiceMessage(this, '${audioDataUrl}')">▶️</button>
-        <div class="voice-progress-container">
-          <div class="voice-progress-fill"></div>
+      <div class="voice-bubble-player" id="${bubbleId}" data-src="${audioDataUrl}" data-msgid="${m.id}">
+        <button class="voice-play-btn" onclick="voiceTogglePlay('${bubbleId}')">▶️</button>
+        <div style="flex:1;display:flex;flex-direction:column;gap:4px;">
+          <div class="voice-progress-container" id="vpc_${bubbleId}" onclick="voiceSeek('${bubbleId}', event)" style="cursor:pointer;position:relative;">
+            <div class="voice-progress-fill" id="vpf_${bubbleId}"></div>
+            <div id="vpin_${bubbleId}" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></div>
+          </div>
+          <div id="vpins_list_${bubbleId}" style="display:flex;flex-wrap:wrap;gap:3px;margin-top:2px;"></div>
         </div>
-        <span class="voice-duration">Ses</span>
+        <span class="voice-duration" id="vdur_${bubbleId}">0:00</span>
+        <button onclick="openVoicePin('${bubbleId}')" title="Not iğnele" style="background:none;border:none;font-size:14px;cursor:pointer;opacity:0.7;padding:0 2px;flex-shrink:0;" title="Zaman damgalı not ekle">📌</button>
       </div>
     `;
+    // Pin notlarını render etmek için kısa gecikme
+    setTimeout(() => renderVoicePins(bubbleId, m.id), 50);
   } else if (cleanText && cleanText.match(/^\[LOCKED:/)) {
     const lockedHtml = renderLockedBubble(cleanText, mine);
     finalBodyHtml = lockedHtml || `<div class="btext">${fmtText(cleanText)}</div>`;
@@ -4514,29 +4732,6 @@ function renderStories(stories){
   Object.entries(byUser).forEach(([username,ss])=>{
     ss.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
 
-    // Kapsülleri filtrele: kendi kapsüllerin hepsini gör, arkadaşlarının kilitli olanlarını sadece kilit ikonut olarak
-    const visibleStories = ss.filter(s => {
-      const capMatch = s.content && s.content.match(/^\[CAPSULE:(\d+)\]/);
-      if (!capMatch) return true; // Normal hikaye
-      const unlockAt = parseInt(capMatch[1]);
-      if (s.username === myUsername) return true; // Kendi kapsülünü her zaman göster
-      return Date.now() >= unlockAt; // Arkadaşın kapsülü sadece süresi dolduysa göster
-    });
-
-    if (!visibleStories.length && ss.every(s => s.content?.match(/^\[CAPSULE:(\d+)\]/))) {
-      // Sadece kilitli kapsüller var — kilit ikonuyla göster
-      const item=document.createElement('div');item.className='story-item';
-      const displayName = getDisplayName(username);
-      const avImg = avatarCache[username];
-      const innerContent = avImg
-        ? `<img src="${avImg}" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-        : `<span style="font-size:22px;">⏳</span>`;
-      item.innerHTML=`<div class="story-ring" style="background:linear-gradient(135deg,#6b7587,#a0aab8)"><div class="story-inner">${innerContent}</div></div><div class="story-name" style="color:var(--muted)">${esc(displayName)}</div>`;
-      item.onclick=()=>toast('🔒 Bu kapsül henüz açılmadı!');
-      bar.appendChild(item);
-      return;
-    }
-
     const item=document.createElement('div');item.className='story-item';
     const c=col(username);
     const displayName = getDisplayName(username);
@@ -4545,7 +4740,7 @@ function renderStories(stories){
       ? `<img src="${avImg}" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
       : `<span class="avatar-bg ${c}" style="width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff">${ini(displayName)}</span>`;
     item.innerHTML=`<div class="story-ring"><div class="story-inner">${innerContent}</div></div><div class="story-name">${esc(displayName)}</div>`;
-    item.onclick=()=>viewStories(visibleStories.length ? visibleStories : ss, username);
+    item.onclick=()=>viewStories(ss,username);
     bar.appendChild(item);
   });
 
@@ -4555,18 +4750,7 @@ function renderStories(stories){
   }
 }
 
-function openAddStory(){
-  document.getElementById('addStoryModal').classList.add('open');
-  // Kapsül durumunu sıfırla
-  document.getElementById('storyTimeCapsuleToggle').checked = false;
-  document.getElementById('storyCapsuleOptions').style.display = 'none';
-  document.getElementById('storyTimeCapsuleSlider').style.background = 'var(--border)';
-  document.getElementById('storyTimeCapsuleThumb').style.left = '3px';
-  document.getElementById('capsuleInfoText').textContent = '';
-  document.querySelectorAll('.capsule-preset-btn').forEach(b => b.style.borderColor = 'var(--border)');
-  document.getElementById('capsuleCustomDate').value = '';
-  _capsuleUnlockAt = null;
-}
+function openAddStory(){document.getElementById('addStoryModal').classList.add('open')}
 function closeAddStory(){
   document.getElementById('addStoryModal').classList.remove('open');
   document.getElementById('storyMedia').value = '';
@@ -4575,62 +4759,6 @@ function closeAddStory(){
   document.getElementById('storyText').value = '';
   storyMediaData = null;
   storyMediaType = null;
-  _capsuleUnlockAt = null;
-  document.getElementById('storyTimeCapsuleToggle').checked = false;
-  document.getElementById('storyCapsuleOptions').style.display = 'none';
-  document.getElementById('capsuleInfoText').textContent = '';
-}
-
-// ── ZAMANKAPSÜLü YARDIMCI FONKSİYONLARI ──
-let _capsuleUnlockAt = null;
-
-function toggleStoryCapsuleUI() {
-  const isOn = document.getElementById('storyTimeCapsuleToggle').checked;
-  const slider = document.getElementById('storyTimeCapsuleSlider');
-  const thumb = document.getElementById('storyTimeCapsuleThumb');
-  const opts = document.getElementById('storyCapsuleOptions');
-  slider.style.background = isOn ? 'var(--primary)' : 'var(--border)';
-  thumb.style.left = isOn ? '23px' : '3px';
-  opts.style.display = isOn ? 'block' : 'none';
-  if (!isOn) {
-    _capsuleUnlockAt = null;
-    document.getElementById('capsuleInfoText').textContent = '';
-    document.querySelectorAll('.capsule-preset-btn').forEach(b => b.style.borderColor = 'var(--border)');
-    document.getElementById('capsuleCustomDate').value = '';
-  }
-}
-
-function selectCapsulePreset(btn, key) {
-  document.querySelectorAll('.capsule-preset-btn').forEach(b => {
-    b.style.borderColor = 'var(--border)';
-    b.style.color = 'var(--text)';
-    b.style.background = 'var(--surface)';
-  });
-  btn.style.borderColor = 'var(--primary)';
-  btn.style.color = 'var(--primary)';
-  btn.style.background = 'var(--primary-light)';
-  document.getElementById('capsuleCustomDate').value = '';
-
-  const now = Date.now();
-  const map = { '1w': 7*24*3600000, '1m': 30*24*3600000, '3m': 90*24*3600000, '6m': 180*24*3600000, '1y': 365*24*3600000 };
-  _capsuleUnlockAt = now + (map[key] || 0);
-  const d = new Date(_capsuleUnlockAt);
-  document.getElementById('capsuleInfoText').textContent = `🗓 ${d.toLocaleDateString('tr-TR', {day:'numeric',month:'long',year:'numeric'})} tarihinde açılacak`;
-}
-
-function onCapsuleCustomDate(inp) {
-  if (!inp.value) return;
-  const ts = new Date(inp.value).getTime();
-  const now = Date.now();
-  if (ts <= now) { toast('Seçilen tarih geçmişte!'); inp.value = ''; return; }
-  _capsuleUnlockAt = ts;
-  document.querySelectorAll('.capsule-preset-btn').forEach(b => {
-    b.style.borderColor = 'var(--border)';
-    b.style.color = 'var(--text)';
-    b.style.background = 'var(--surface)';
-  });
-  const d = new Date(ts);
-  document.getElementById('capsuleInfoText').textContent = `🗓 ${d.toLocaleDateString('tr-TR', {day:'numeric',month:'long',year:'numeric'})} tarihinde açılacak`;
 }
 
 function handleMediaSelect(input) {
@@ -4663,24 +4791,12 @@ async function postStory(){
     finalContent = `[MEDIA:${storyMediaType}]${storyMediaData}[/MEDIA]` + text;
   }
 
-  // Zaman kapsülü aktifse içeriği kapsüle sar
-  const isCapsule = document.getElementById('storyTimeCapsuleToggle').checked;
-  if (isCapsule) {
-    if (!_capsuleUnlockAt) { toast('Lütfen bir açılma tarihi seçin!'); return; }
-    if (_capsuleUnlockAt <= Date.now()) { toast('Seçilen tarih geçmişte!'); return; }
-    finalContent = `[CAPSULE:${_capsuleUnlockAt}]${finalContent}[/CAPSULE]`;
-  }
-
   const {error} = await db.from('stories').insert({username:myUsername, content:finalContent, emoji: ''});
   if(error){toast('Durum paylaşılamadı!');return;}
   
   closeAddStory();
   loadStories();
-  if (isCapsule) {
-    toast('⏳ Zaman kapsülü oluşturuldu! Arkadaşların görebilir ama içeriği göremez.');
-  } else {
-    toast('Durum paylaşıldı ✓');
-  }
+  toast('Durum paylaşıldı ✓');
 }
 
 async function deleteCurrentStory() {
@@ -4765,68 +4881,8 @@ function renderStoryViewer(){
   }
   document.getElementById('svName').textContent=displayName;
   document.getElementById('svTime').textContent=timeAgo(s.created_at);
-
-  // Kapsül kontrolü
-  const capMatch = s.content && s.content.match(/^\[CAPSULE:(\d+)\]([\s\S]*)\[\/CAPSULE\]$/);
-  if (capMatch) {
-    const unlockAt = parseInt(capMatch[1]);
-    const innerContent = capMatch[2];
-    const remaining = unlockAt - Date.now();
-    
-    if (remaining > 0 && s.username !== myUsername) {
-      // Kilitli kapsül — arkadaşın, süresi dolmamış
-      const d = new Date(unlockAt);
-      document.getElementById('svMediaWrap').innerHTML = '';
-      document.getElementById('svText').innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px;">
-          <div style="font-size:64px;animation:lockpulse 2s ease-in-out infinite;">⏳</div>
-          <div style="font-size:18px;font-weight:700;color:#fff;">Zaman Kapsülü</div>
-          <div style="font-size:14px;color:rgba(255,255,255,0.8);text-align:center;">Bu kapsül henüz açılmadı.<br><strong>${d.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})}</strong> tarihinde açılacak.</div>
-          <div style="background:rgba(255,255,255,0.15);backdrop-filter:blur(6px);border-radius:20px;padding:8px 18px;font-size:13px;color:#fff;font-weight:600;">${formatLockCountdown(remaining)} kaldı</div>
-        </div>`;
-
-      const prog=document.getElementById('storyProgress');prog.innerHTML='';
-      currentStories.forEach((_,i)=>{
-        const bar=document.createElement('div');bar.className='story-progress-bar';
-        const fill=document.createElement('div');fill.className='story-progress-fill';
-        if(i<storyIdx)fill.style.width='100%';
-        bar.appendChild(fill);prog.appendChild(bar);
-      });
-
-      document.getElementById('storyReplyBar').style.display = 'none';
-      document.getElementById('storyDeleteBtn').style.display = 'none';
-      return;
-    } else if (s.username === myUsername && remaining > 0) {
-      // Kendi kilitli kapsülü — görebilir ama etiket var
-      const d = new Date(unlockAt);
-      let text = innerContent;
-      let mediaHtml = '';
-      const mediaMatch = text.match(/\[MEDIA:(image|video)\](.*?)\[\/MEDIA\]/);
-      if (mediaMatch) {
-        const type = mediaMatch[1]; const src = mediaMatch[2];
-        mediaHtml = type === 'video' ? `<video src="${src}" class="story-media-wrap" autoplay muted loop></video>` : `<div class="story-media-wrap"><img src="${src}"></div>`;
-        text = text.replace(mediaMatch[0], '');
-      }
-      document.getElementById('svMediaWrap').innerHTML = mediaHtml;
-      document.getElementById('svText').innerHTML = `<div style="font-size:11px;background:rgba(0,0,0,0.4);padding:4px 10px;border-radius:12px;margin-bottom:8px;color:rgba(255,255,255,0.8);">⏳ Kapsül — ${d.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})} açılacak</div>${esc(text)}`;
-      document.getElementById('storyDeleteBtn').style.display = 'inline-block';
-      document.getElementById('storyReplyBar').style.display = 'none';
-
-      const prog=document.getElementById('storyProgress');prog.innerHTML='';
-      currentStories.forEach((_,i)=>{
-        const bar=document.createElement('div');bar.className='story-progress-bar';
-        const fill=document.createElement('div');fill.className='story-progress-fill';
-        if(i<storyIdx)fill.style.width='100%';
-        bar.appendChild(fill);prog.appendChild(bar);
-      });
-      return;
-    } else {
-      // Süresi dolmuş kapsül — normal gibi göster, içeriği kapsül tagından çıkar
-      s._unlockedContent = innerContent;
-    }
-  }
-
-  let text = (s._unlockedContent || s.content);
+  
+  let text = s.content;
   let mediaHtml = '';
   const mediaMatch = text.match(/\[MEDIA:(image|video)\](.*?)\[\/MEDIA\]/);
   
@@ -5675,7 +5731,7 @@ function toast(msg){
 // ── MESAJ CONTEXT MENU ──
 let ctxMsgId = null, ctxMsgMine = false, ctxMsgText = '', ctxMsgTime = null;
 const CTX_REACTIONS = ['❤️','😂','😮','😢','😡','👍','👎','🔥'];
-let forwardText = '', forwardSelectedChats = new Set();
+let forwardText = '', forwardSelectedChats = new Set(), forwardMsgObj = null;
 let editMsgId = null;
 
 function showMsgContextMenu(msgId) {
@@ -5726,7 +5782,7 @@ function showMsgContextMenu(msgId) {
   actDiv.innerHTML = '';
   const actions = [
     { icon: '↩️', label: 'Yanıtla', fn: () => { triggerReply(msg, ctxMsgText); closeMsgCtx(); } },
-    { icon: '📤', label: 'İlet', fn: () => { openForward(ctxMsgText); closeMsgCtx(); } },
+    { icon: '📤', label: 'İlet', fn: () => { openForward(msg); closeMsgCtx(); } },
     { icon: '📋', label: 'Kopyala', fn: () => { navigator.clipboard?.writeText(ctxMsgText); toast('Kopyalandı ✓'); closeMsgCtx(); } },
   ];
 
@@ -5762,8 +5818,16 @@ function closeMsgCtx() {
 }
 
 // ── İLET ──
-function openForward(text) {
-  forwardText = text;
+function openForward(msgOrText) {
+  // Geriye dönük uyumluluk: string veya message object kabul et
+  if (typeof msgOrText === 'string') {
+    forwardText = msgOrText;
+    forwardMsgObj = null;
+  } else {
+    forwardMsgObj = msgOrText;
+    const parsed = parseMessage(msgOrText);
+    forwardText = parsed.cleanText; // tam içerik (medya data dahil)
+  }
   forwardSelectedChats.clear();
   const list = document.getElementById('forwardList');
   list.innerHTML = '';
@@ -5812,7 +5876,11 @@ function closeForward() {
 
 async function sendForward() {
   if (!forwardSelectedChats.size) { toast('En az 1 kişi seç!'); return; }
-  const fwdText = '📤|İletildi|' + forwardText;
+  // İletilecek içerik: ses veya medya ise ham veriyi kullan, metin ise etiket ekle
+  let contentToFwd = forwardText;
+  // Medya veya ses içeriyorsa ham içerik olarak ilet (etiket ekleme)
+  const isMedia = contentToFwd.match(/^\[MEDIA:(image|video)\]/) || contentToFwd.startsWith('[AUDIO]') || contentToFwd.startsWith('[LOCATION]') || contentToFwd.startsWith('[LIVE_LOCATION]');
+  const fwdText = isMedia ? contentToFwd : ('📤|İletildi|' + contentToFwd);
   for (const uid of forwardSelectedChats) {
     const isGroup = groupsList.find(g => g.id === uid);
     let raw = '';
@@ -7506,9 +7574,9 @@ function renderStoryList(stories) {
     row.onmouseover = () => row.style.background = 'var(--list-hover)';
     row.onmouseout = () => row.style.background = 'var(--surface)';
 
-    // Avatar with gradient ring (kapsülse farklı renk)
+    // Avatar with gradient ring
     const avWrap = document.createElement('div');
-    avWrap.style.cssText = `width:58px;height:58px;border-radius:50%;padding:2.5px;background:${isCapsuleLocked ? 'linear-gradient(135deg,#6b7587,#a0aab8)' : 'var(--gradient)'};flex-shrink:0;`;
+    avWrap.style.cssText = 'width:58px;height:58px;border-radius:50%;padding:2.5px;background:var(--gradient);flex-shrink:0;';
     const avInner = document.createElement('div');
     avInner.style.cssText = 'width:100%;height:100%;border-radius:50%;border:2.5px solid var(--surface);overflow:hidden;display:flex;align-items:center;justify-content:center;';
     if (avImg) {
@@ -7519,30 +7587,16 @@ function renderStoryList(stories) {
     }
     avWrap.appendChild(avInner);
 
-    // Preview content — kapsül kontrolü
+    // Preview content
     let previewText = latest.content || '';
-    const capMatch = previewText.match(/^\[CAPSULE:(\d+)\]([\s\S]*)\[\/CAPSULE\]$/);
-    let isCapsuleLocked = false;
-    if (capMatch) {
-      const unlockAt = parseInt(capMatch[1]);
-      if (Date.now() < unlockAt && username !== myUsername) {
-        isCapsuleLocked = true;
-        const d = new Date(unlockAt);
-        previewText = `⏳ Zaman Kapsülü — ${d.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})} açılacak`;
-      } else {
-        previewText = capMatch[2]; // İçeriği kapsülden çıkar
-      }
+    const mediaMatch = previewText.match(/\[MEDIA:(image|video)\](.*?)\[\/MEDIA\]/);
+    let previewIcon = '';
+    if (mediaMatch) {
+      previewIcon = mediaMatch[1] === 'video' ? '🎥 ' : '📷 ';
+      previewText = previewText.replace(mediaMatch[0], '').trim() || (mediaMatch[1] === 'video' ? 'Video' : 'Fotoğraf');
     }
-    if (!isCapsuleLocked) {
-      const mediaMatch = previewText.match(/\[MEDIA:(image|video)\](.*?)\[\/MEDIA\]/);
-      let previewIcon = '';
-      if (mediaMatch) {
-        previewIcon = mediaMatch[1] === 'video' ? '🎥 ' : '📷 ';
-        previewText = previewText.replace(mediaMatch[0], '').trim() || (mediaMatch[1] === 'video' ? 'Video' : 'Fotoğraf');
-      }
-      if (!previewText) previewText = previewIcon ? previewIcon.trim() : '…';
-      else previewText = previewIcon + previewText;
-    }
+    if (!previewText) previewText = previewIcon ? previewIcon.trim() : '…';
+    else previewText = previewIcon + previewText;
 
     const info = document.createElement('div');
     info.style.cssText = 'flex:1;min-width:0;';
@@ -7562,13 +7616,7 @@ function renderStoryList(stories) {
     row.appendChild(avWrap);
     row.appendChild(info);
     row.appendChild(meta);
-    row.onclick = () => {
-      if (isCapsuleLocked) {
-        toast('🔒 Bu kapsül henüz açılmadı!');
-      } else {
-        viewStories(ss, username);
-      }
-    };
+    row.onclick = () => viewStories(ss, username);
     list.appendChild(row);
   });
 }
