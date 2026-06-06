@@ -162,7 +162,9 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .mrow.mine .btime,.mrow.mine .btick{color:rgba(255,255,255,0.75)}
 .mrow:not(.mine) .btime{color:var(--muted)}
 .btime{font-size:10px;font-weight:500}
-.btick{font-size:11px}
+.btick{font-size:11px;transition:color 0.3s}
+.btick.read{color:#60d9fa !important;filter:drop-shadow(0 0 2px rgba(96,217,250,0.4))}
+.btick.partial{color:rgba(255,255,255,0.75)}
 .bubble{position:relative}
 .bdel{
   position:absolute;top:-9px;right:-9px;background:var(--primary);color:#fff;
@@ -498,8 +500,40 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);backdrop-filter:blur(2px);z-index:199;display:none;opacity:0;transition:.3s}
 .overlay.open{display:block;opacity:1}
 
-/* TOAST */
-.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;border-radius:14px;padding:11px 22px;font-size:14px;font-weight:500;z-index:999;white-space:nowrap;box-shadow:0 10px 20px rgba(0,0,0,0.15);animation:bpop .3s ease}
+/* UNREAD BADGE */
+.unread-badge {
+  background: var(--primary);
+  color: #fff;
+  border-radius: 50%;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0 5px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(99,102,241,0.4);
+}
+
+/* CHAT LIST TIME */
+.chat-time {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+  margin-left: 6px;
+}
+.pu-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;border-radius:14px;padding:11px 22px;font-size:14px;font-weight:500;z-index:999;white-space:nowrap;box-shadow:0 10px 20px rgba(0,0,0,0.15);animation:bpop .3s ease}
 
 /* AVATAR COLORS */
 .av0{background:linear-gradient(135deg,#f43f5e,#e11d48)}.av1{background:linear-gradient(135deg,#f59e0b,#d97706)}.av2{background:linear-gradient(135deg,#10b981,#059669)}
@@ -1656,9 +1690,15 @@ let currentReactionMsgId = null;
 
 // SON MESAJ VE REPLAY DEVLET YAPISI
 let conversationLastMessages = {}; 
+let unreadCounts = {}; // { conversationKey: count }
 let loadedMessagesList = []; 
 let replyingToMessage = null; 
 let editingMessageId = null; 
+
+// OKUNDU DURUMU: { convKey: timestamp } — karşı tarafın sohbete son girişi
+let readReceiptsCache = {};
+// GRUP OKUNDU: { groupId: Set<username> } — grupta şu an kimin olduğu
+let groupActiveMembersCache = {};
 
 // KLAVYE STATE DEĞİŞKENLERİ
 let currentKeyboardTheme = localStorage.getItem('yam-kbd') || 'standard';
@@ -2256,6 +2296,8 @@ function updateHeaderState() {
 function switchChat(target, type){
   currentChat = target;
   currentChatType = type;
+  // Sohbet açıldığında okundu olarak işaretle
+  markConversationRead(target);
   document.getElementById('mainView').style.display = 'none';
   document.getElementById('chatView').style.display = 'flex';
   updateHeaderState();
@@ -2264,7 +2306,27 @@ function switchChat(target, type){
   cancelReply();
   cancelEdit();
   closeReactionPicker();
+  // Presence'ı güncelle: hangi sohbette olduğumuzu yayınla
+  presenceChannel?.track({username: myUsername, activeChat: target});
   loadMessages();
+}
+
+function markConversationRead(convKey) {
+  if (!convKey) return;
+  // En son mesaj ID'sini bul
+  const msgs = loadedMessagesList.filter(m => {
+    const p = parseMessage(m);
+    if (p.isDM) return (m.username === myUsername && p.recipient === convKey) || (m.username === convKey && p.recipient === myUsername);
+    if (p.groupId) return p.groupId === convKey;
+    return false;
+  });
+  if (!msgs.length) return;
+  const lastId = Math.max(...msgs.map(m => m.id));
+  const seenKeys = JSON.parse(localStorage.getItem('yam-seen-' + myUsername) || '{}');
+  seenKeys[convKey] = lastId;
+  localStorage.setItem('yam-seen-' + myUsername, JSON.stringify(seenKeys));
+  unreadCounts[convKey] = 0;
+  updateContactsPanel();
 }
 
 function closeChat() {
@@ -2278,6 +2340,8 @@ function closeChat() {
   closeReactionPicker();
   updateHeaderState();
   updateContactsPanel();
+  // Presence'ı güncelle: sohbetten çıkıldı
+  presenceChannel?.track({username: myUsername, activeChat: ''});
 }
 
 // ── START APP ──
@@ -2820,8 +2884,24 @@ function updateLastMessageCache(m) {
 
 function rebuildLastMessageCache() {
   conversationLastMessages = {};
+  unreadCounts = {};
+  const seenKeys = JSON.parse(localStorage.getItem('yam-seen-' + myUsername) || '{}');
   loadedMessagesList.forEach(m => {
     updateLastMessageCache(m);
+    // Okunmamış sayım: karşı tarafın mesajları, son görülen ID'den sonrası
+    const p = parseMessage(m);
+    if (m.username === myUsername) return; // Kendi mesajlarım okunmuş sayılır
+    let convKey = null;
+    if (p.isDM && p.recipient === myUsername) convKey = m.username;
+    else if (p.groupId) {
+      const g = groupsList.find(g => g.id === p.groupId);
+      if (g && g.members && g.members.includes(myUsername)) convKey = p.groupId;
+    }
+    if (!convKey) return;
+    const lastSeenId = seenKeys[convKey] || 0;
+    if (m.id > lastSeenId) {
+      unreadCounts[convKey] = (unreadCounts[convKey] || 0) + 1;
+    }
   });
 }
 
@@ -2896,6 +2976,10 @@ async function loadMessages(){
     el.appendChild(makeRow(m,p.cleanText,p.reaction));
   }
   scrollBot();
+  // Mesajlar yüklendiğinde aktif sohbeti okundu işaretle
+  markConversationRead(currentChat);
+  // Tick durumlarını uygula
+  _applyTickStates();
 }
 
 function subscribeMessages(){
@@ -2907,6 +2991,23 @@ function subscribeMessages(){
 
       loadedMessagesList.push(m);
       updateLastMessageCache(m);
+
+      // Okunmamış sayacını güncelle (karşı tarafın mesajı ve aktif sohbet değilse)
+      if (m.username !== myUsername) {
+        let convKey = null;
+        if (parsed.isDM && parsed.recipient === myUsername) convKey = m.username;
+        else if (parsed.groupId) {
+          const g = groupsList.find(g => g.id === parsed.groupId);
+          if (g && g.members && g.members.includes(myUsername)) convKey = parsed.groupId;
+        }
+        if (convKey && convKey !== currentChat) {
+          unreadCounts[convKey] = (unreadCounts[convKey] || 0) + 1;
+        }
+        // Eğer aktif sohbet ise okundu olarak işaretle
+        if (convKey && convKey === currentChat) {
+          markConversationRead(convKey);
+        }
+      }
 
       if(parsed.isDM && m.username !== myUsername && !emailCache[m.username]) {
         const {data: prof} = await db.from('profiles').select('email').eq('username', m.username).single();
@@ -2930,6 +3031,20 @@ function subscribeMessages(){
           const row = makeRow(m,parsed.cleanText,parsed.reaction);
           document.getElementById('messages').appendChild(row);
           window.requestAnimationFrame(() => scrollBot());
+          // Kendi gönderdiğim yeni mesajın tick durumunu hemen kontrol et
+          if (m.username === myUsername && parsed.isDM) {
+            const theirData = onlineUsers[parsed.recipient];
+            const theyAreHere = theirData && theirData.activeChat === myUsername;
+            const hasReceipt = readReceiptsCache[parsed.recipient];
+            if (theyAreHere || hasReceipt) {
+              const tick = document.getElementById('tick-' + m.id);
+              if (tick) { tick.textContent = '✓✓'; tick.classList.add('read'); tick.classList.remove('partial'); }
+            }
+          }
+          if (m.username === myUsername && parsed.groupId) {
+            // Grup mesajı: varsayılan √, sonra grup presence'a göre hesapla
+            setTimeout(() => _applyGroupTickStates(parsed.groupId), 100);
+          }
       }
       if(m.username!==myUsername){
         if(parsed.isDM&&parsed.recipient===myUsername){
@@ -2970,6 +3085,10 @@ function setupPresence(){
       const state=presenceChannel.presenceState();
       onlineUsers={};
       for(const k in state){const u=state[k][0];onlineUsers[u.username]=u;}
+      
+      // Karşı tarafın hangi sohbette olduğunu oku ve tick'leri güncelle
+      _updateReadReceiptsFromPresence(onlineUsers);
+      
       updateContactsPanel();
       if(currentChat) updateHeaderState();
     })
@@ -2977,8 +3096,136 @@ function setupPresence(){
       if(payload.username!==myUsername)updateTyping(payload.username,payload.typing);
     })
     .subscribe(async status=>{
-      if(status==='SUBSCRIBED')await presenceChannel.track({username:myUsername});
+      if(status==='SUBSCRIBED')await presenceChannel.track({username:myUsername, activeChat: currentChat || ''});
     });
+}
+
+// Presence state'inden okundu bilgilerini işle
+function _updateReadReceiptsFromPresence(onlineUsersMap) {
+  // Grup active üye cache'ini sıfırla ve yeniden oluştur
+  groupActiveMembersCache = {};
+
+  for (const username in onlineUsersMap) {
+    if (username === myUsername) continue;
+    const userData = onlineUsersMap[username];
+    const theirActiveChat = userData.activeChat;
+    if (!theirActiveChat) continue;
+
+    // DM: karşı taraf benim sohbetimde mi?
+    if (theirActiveChat === myUsername) {
+      readReceiptsCache[username] = Date.now();
+      _markDmTicksRead(username);
+    }
+
+    // GRUP: bu kullanıcı bir grupta mı?
+    const group = groupsList.find(g => g.id === theirActiveChat);
+    if (group && group.members && group.members.includes(myUsername)) {
+      if (!groupActiveMembersCache[theirActiveChat]) groupActiveMembersCache[theirActiveChat] = new Set();
+      groupActiveMembersCache[theirActiveChat].add(username);
+    }
+  }
+
+  // Grup tick'lerini güncelle
+  if (currentChatType === 'group' && currentChat) {
+    _applyGroupTickStates(currentChat);
+  }
+}
+
+// Belirli bir DM sohbetinin tüm tick'lerini okundu yap
+function _markDmTicksRead(partnerUsername) {
+  if (currentChatType === 'dm' && currentChat === partnerUsername) {
+    document.querySelectorAll('.mrow.mine .btick').forEach(tick => {
+      tick.textContent = '✓✓';
+      tick.classList.add('read');
+      tick.classList.remove('partial');
+    });
+  }
+  // Tüm DOM'daki ilgili mesajların tick'lerini de güncelle
+  loadedMessagesList.forEach(m => {
+    if (m.username === myUsername) {
+      const p = parseMessage(m);
+      if (p.isDM && p.recipient === partnerUsername) {
+        const tick = document.getElementById('tick-' + m.id);
+        if (tick) {
+          tick.textContent = '✓✓';
+          tick.classList.add('read');
+          tick.classList.remove('partial');
+        }
+      }
+    }
+  });
+}
+
+// Grup tick durumlarını tüm mesajlar için hesapla ve uygula
+function _applyGroupTickStates(groupId) {
+  const group = groupsList.find(g => g.id === groupId);
+  if (!group || !group.members) return;
+
+  // Benim dışımdaki üyeler
+  const otherMembers = group.members.filter(u => u !== myUsername);
+  if (!otherMembers.length) return;
+
+  const activeInGroup = groupActiveMembersCache[groupId] || new Set();
+
+  // Her mesaj için tick durumunu hesapla
+  loadedMessagesList.forEach(m => {
+    if (m.username !== myUsername) return;
+    const p = parseMessage(m);
+    if (p.groupId !== groupId) return;
+
+    const tick = document.getElementById('tick-' + m.id);
+    if (!tick) return;
+
+    const readersCount = [...activeInGroup].filter(u => u !== myUsername).length;
+    const totalOthers = otherMembers.length;
+
+    if (readersCount === 0) {
+      // Hiç kimse görmedi → √
+      tick.textContent = '√';
+      tick.classList.remove('read', 'partial');
+    } else if (readersCount >= totalOthers) {
+      // Herkes gördü → ✓✓ mavi
+      tick.textContent = '✓✓';
+      tick.classList.add('read');
+      tick.classList.remove('partial');
+    } else {
+      // Bazıları gördü → ✓ gri
+      tick.textContent = '✓';
+      tick.classList.remove('read');
+      tick.classList.add('partial');
+    }
+  });
+}
+
+// Mesajlar yüklendikten sonra mevcut presence + readReceipts cache'e göre tick'leri güncelle
+function _applyTickStates() {
+  if (!currentChat) return;
+
+  if (currentChatType === 'dm') {
+    // Karşı taraf şu an sohbetimizde mi?
+    const theirData = onlineUsers[currentChat];
+    const theyAreHere = theirData && theirData.activeChat === myUsername;
+    const hasReadReceipt = readReceiptsCache[currentChat];
+
+    document.querySelectorAll('.mrow.mine .btick').forEach(tick => {
+      if (theyAreHere || hasReadReceipt) {
+        tick.textContent = '✓✓';
+        tick.classList.add('read');
+        tick.classList.remove('partial');
+      } else {
+        tick.textContent = '✓';
+        tick.classList.remove('read', 'partial');
+      }
+    });
+
+  } else if (currentChatType === 'group') {
+    // Önce hepsini √ yap, sonra grup presence'a göre güncelle
+    document.querySelectorAll('.mrow.mine .btick').forEach(tick => {
+      tick.textContent = '√';
+      tick.classList.remove('read', 'partial');
+    });
+    _applyGroupTickStates(currentChat);
+  }
 }
 
 function updateTyping(username,active){
@@ -3441,7 +3688,7 @@ function makeRow(m, cleanText, reaction) {
     ${showDel?`<button class="bdel" onclick="deleteMsg('${m.id}')">✕</button>`:''}
     ${!mine?`<div class="bsender">${esc(displayName)}</div>`:''}
     ${finalBodyHtml}
-    <div class="bmeta">${isEdited?`<span style="font-size:10px;opacity:0.65;margin-right:3px">Düzenlendi</span>`:''}<span class="btime">${tstr(m.created_at)}</span>${mine?'<span class="btick">✓✓</span>':''}</div>
+    <div class="bmeta">${isEdited?`<span style="font-size:10px;opacity:0.65;margin-right:3px">Düzenlendi</span>`:''}<span class="btime">${tstr(m.created_at)}</span>${mine?`<span class="btick" id="tick-${m.id}" data-msgid="${m.id}">${currentChatType==='group'?'√':'✓'}</span>`:''}</div>
   </div>`;
 
   let startX = 0; let startY = 0;
@@ -3583,91 +3830,101 @@ function updateContactsPanel(){
   if(!pl) return;
   pl.innerHTML='';
 
-  let hasItems = false;
+  // Tüm sohbetleri tek bir listeye al, son mesaj zamanına göre sırala
+  const allConvs = [];
 
-  if(groupsList.length > 0){
-    const groupItems = groupsList.filter(g => g.members.includes(myUsername));
-    if(groupItems.length > 0) {
-      const sl=document.createElement('div');sl.className='sec-label';sl.textContent='Gruplar';pl.appendChild(sl);
-      groupItems.forEach(g=>{
-        hasItems = true;
-        const d=document.createElement('div');d.className='pu';
-        
-        const isAdmin = g.created_by === myUsername || (g.admins && g.admins.includes(myUsername));
-        
-        const gAvImg = groupAvatarCache[g.id];
-        const gAvHtml = gAvImg
-          ? `<img src="${gAvImg}" loading="lazy" style="width:46px;height:46px;border-radius:14px;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.1);cursor:pointer" onclick="event.stopPropagation();openAvatarFullscreen('${esc(g.name)}','${gAvImg}')">`
-          : `<div class="pu-av av4" style="cursor:pointer" onclick="event.stopPropagation()">#</div>`;
-          
-        let lastMsgText = `${g.members.length} üye`;
-        const lastMsg = conversationLastMessages[g.id];
-        if (lastMsg) {
-          lastMsgText = `<b>${esc(getDisplayName(lastMsg.sender))}:</b> ${esc(lastMsg.text)}`;
-        }
+  // Gruplar
+  const myGroups = groupsList.filter(g => g.members.includes(myUsername));
+  myGroups.forEach(g => {
+    const lastMsg = conversationLastMessages[g.id];
+    allConvs.push({ type: 'group', key: g.id, group: g, lastMsg, ts: lastMsg ? new Date(lastMsg.created_at).getTime() : 0 });
+  });
 
-        d.innerHTML=`${gAvHtml}<div style="flex:1; min-width:0;"><div class="pu-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(g.name)}</div><div class="pu-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--muted)">${lastMsgText}</div></div>${isAdmin?'<span style="font-size:12px;color:var(--primary);font-weight:700;background:var(--primary-light);padding:2px 8px;border-radius:10px;margin-right:4px">Yönetici</span>':''}<button onclick="event.stopPropagation();openGroupSettings('${g.id}')" style="background:var(--bg);border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0" title="Grup Ayarları">⚙️</button>`;
-        d.onclick=()=>switchChat(g.id,'group');
-        pl.appendChild(d);
-      });
-    }
+  // Kayıtlı kişiler
+  Object.keys(myContacts).forEach(u => {
+    const lastMsg = conversationLastMessages[u];
+    allConvs.push({ type: 'dm', key: u, lastMsg, ts: lastMsg ? new Date(lastMsg.created_at).getTime() : 0 });
+  });
+
+  // Bilinmeyen DM'ler
+  const unknownDMs = [...dmHistory].filter(u => u !== myUsername && !myContacts[u]);
+  unknownDMs.forEach(u => {
+    const lastMsg = conversationLastMessages[u];
+    allConvs.push({ type: 'dm-unknown', key: u, lastMsg, ts: lastMsg ? new Date(lastMsg.created_at).getTime() : 0 });
+  });
+
+  // En son mesaj en üste
+  allConvs.sort((a, b) => b.ts - a.ts);
+
+  if (allConvs.length === 0) {
+    pl.innerHTML = '<div class="dsep" style="margin-top:40px"><span>Henüz bir sohbetiniz bulunmuyor.<br><br>Sağ üstteki 👤+ butonuna tıklayarak<br>e-posta adresi ile yeni kişi ekleyebilirsiniz.</span></div>';
+    return;
   }
 
-  const savedKeys = Object.keys(myContacts);
-  if(savedKeys.length > 0) {
-    const sl=document.createElement('div');sl.className='sec-label';sl.textContent='Kişiler';pl.appendChild(sl);
-    savedKeys.forEach(u=>{
-      hasItems = true;
+  allConvs.forEach(conv => {
+    const unread = unreadCounts[conv.key] || 0;
+
+    if (conv.type === 'group') {
+      const g = conv.group;
+      const isAdmin = g.created_by === myUsername || (g.admins && g.admins.includes(myUsername));
+      const gAvImg = groupAvatarCache[g.id];
+      const gAvHtml = gAvImg
+        ? `<img src="${gAvImg}" loading="lazy" style="width:46px;height:46px;border-radius:14px;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.1);cursor:pointer" onclick="event.stopPropagation();openAvatarFullscreen('${esc(g.name)}','${gAvImg}')">`
+        : `<div class="pu-av av4" style="cursor:pointer" onclick="event.stopPropagation()">#</div>`;
+      
+      let lastMsgText = `${g.members.length} üye`;
+      if (conv.lastMsg) {
+        lastMsgText = `<b>${esc(getDisplayName(conv.lastMsg.sender))}:</b> ${esc(conv.lastMsg.text)}`;
+      }
+      const timeStr = conv.lastMsg ? _chatTimeStr(conv.lastMsg.created_at) : '';
+      const unreadHtml = unread > 0 ? `<div class="unread-badge">${unread > 99 ? '99+' : unread}</div>` : '';
+
+      const d = document.createElement('div'); d.className = 'pu';
+      d.innerHTML = `${gAvHtml}<div style="flex:1; min-width:0;"><div style="display:flex;align-items:center;gap:4px;"><div class="pu-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1;">${esc(g.name)}</div>${isAdmin ? '<span style="font-size:11px;color:var(--primary);font-weight:700;background:var(--primary-light);padding:1px 6px;border-radius:8px;flex-shrink:0">Yönetici</span>' : ''}</div><div class="pu-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--muted)">${lastMsgText}</div></div><div class="pu-right">${timeStr ? `<span class="chat-time">${timeStr}</span>` : ''}${unreadHtml}<button onclick="event.stopPropagation();openGroupSettings('${g.id}')" style="background:var(--bg);border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0" title="Grup Ayarları">⚙️</button></div>`;
+      d.onclick = () => switchChat(g.id, 'group');
+      pl.appendChild(d);
+
+    } else {
+      // DM (kayıtlı veya bilinmeyen)
+      const u = conv.key;
       const isOnline = onlineUsers[u] !== undefined;
       const displayName = getDisplayName(u);
-      
       let lastMsgText = isOnline ? '● Çevrimiçi' : '○ Çevrimdışı';
-      const lastMsg = conversationLastMessages[u];
-      if (lastMsg) {
-        lastMsgText = (lastMsg.sender === myUsername ? 'Sen: ' : '') + lastMsg.text;
+      if (conv.lastMsg) {
+        lastMsgText = (conv.lastMsg.sender === myUsername ? 'Sen: ' : '') + conv.lastMsg.text;
       }
-      
-      const d=document.createElement('div');d.className='pu';d.onclick=()=>switchChat(u,'dm');
-      
+      const timeStr = conv.lastMsg ? _chatTimeStr(conv.lastMsg.created_at) : '';
+      const unreadHtml = unread > 0 ? `<div class="unread-badge">${unread > 99 ? '99+' : unread}</div>` : '';
+
+      const d = document.createElement('div'); d.className = 'pu'; d.onclick = () => switchChat(u, 'dm');
       const avatarUrl = avatarCache[u];
       const avatarHtml = avatarUrl
         ? `<img src="${avatarUrl}" loading="lazy" style="width:46px;height:46px;border-radius:14px;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.1);cursor:pointer" onclick="event.stopPropagation();openAvatarFullscreen('${esc(displayName)}','${avatarUrl}')">`
         : `<div class="pu-av ${col(u)}" style="cursor:pointer" onclick="event.stopPropagation()">${ini(displayName)}</div>`;
       
-      d.innerHTML=`${avatarHtml}<div style="flex:1; min-width:0;"><div class="pu-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(displayName)}</div><div class="pu-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--muted)">${esc(lastMsgText)}</div></div>`;
+      const nameBold = unread > 0 ? `style="font-weight:800;color:var(--text)"` : '';
+      const subBold = unread > 0 ? `style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text); font-weight:600"` : `style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--muted)"`;
+      d.innerHTML = `${avatarHtml}<div style="flex:1; min-width:0;"><div class="pu-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" ${nameBold}>${esc(displayName)}</div><div class="pu-sub" ${subBold}>${esc(lastMsgText)}</div></div><div class="pu-right">${timeStr ? `<span class="chat-time">${timeStr}</span>` : ''}${unreadHtml}</div>`;
       pl.appendChild(d);
-    });
-  }
+    }
+  });
+}
 
-  const unknownDMs=[...dmHistory].filter(u=>u!==myUsername && !myContacts[u]);
-  if(unknownDMs.length > 0){
-    const sl=document.createElement('div');sl.className='sec-label';sl.textContent='Diğer Sohbetler (Bilinmeyen)';pl.appendChild(sl);
-    unknownDMs.forEach(u=>{
-      hasItems = true;
-      const isOnline = onlineUsers[u] !== undefined;
-      
-      let lastMsgText = isOnline ? '● Çevrimiçi' : '○ Çevrimdışı';
-      const lastMsg = conversationLastMessages[u];
-      if (lastMsg) {
-        lastMsgText = (lastMsg.sender === myUsername ? 'Sen: ' : '') + lastMsg.text;
-      }
-
-      const d=document.createElement('div');d.className='pu';d.onclick=()=>switchChat(u,'dm');
-      
-      const avatarUrl = avatarCache[u];
-      const displayNameVal = getDisplayName(u);
-      const avatarHtml = avatarUrl
-        ? `<img src="${avatarUrl}" loading="lazy" style="width:46px;height:46px;border-radius:14px;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.1);cursor:pointer" onclick="event.stopPropagation();openAvatarFullscreen('${esc(displayNameVal)}','${avatarUrl}')">`
-        : `<div class="pu-av ${col(u)}" style="cursor:pointer" onclick="event.stopPropagation()">${ini(displayNameVal)}</div>`;
-      
-      d.innerHTML=`${avatarHtml}<div style="flex:1; min-width:0;"><div class="pu-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(displayNameVal)}</div><div class="pu-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--muted)">${esc(lastMsgText)}</div></div>`;
-      pl.appendChild(d);
-    });
+function _chatTimeStr(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = now - d;
+  const oneDay = 86400000;
+  if (diff < oneDay && now.getDate() === d.getDate()) {
+    return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
   }
-
-  if(!hasItems) {
-    pl.innerHTML = '<div class="dsep" style="margin-top:40px"><span>Henüz bir sohbetiniz bulunmuyor.<br><br>Sağ üstteki 👤+ butonuna tıklayarak<br>e-posta adresi ile yeni kişi ekleyebilirsiniz.</span></div>';
+  if (diff < 2 * oneDay) return 'Dün';
+  if (diff < 7 * oneDay) {
+    const days = ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'];
+    return days[d.getDay()];
   }
+  return d.getDate() + '/' + (d.getMonth()+1);
 }
 
 async function loadGroups(){
