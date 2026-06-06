@@ -1907,7 +1907,36 @@ position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--
     <button class="auth-btn secondary" style="margin-bottom:14px; padding:12px; font-size:14px;" onclick="document.getElementById('storyMedia').click()">📷 Fotoğraf / Video Ekle</button>
     <input type="file" id="storyMedia" accept="image/*,video/*" style="display:none" onchange="handleMediaSelect(this)">
 
-    <button class="modal-btn" onclick="postStory()">Paylaş ✨</button>
+    <!-- ZEİTKAPSEL (Zaman Kapsülü) SEÇENEĞİ -->
+    <div style="border:2px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px;background:var(--bg);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">⏳</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Dijital Zaman Kapsülü</div>
+            <div style="font-size:11px;color:var(--muted);">Gelecekte açılsın, şimdi kilitli kalsın</div>
+          </div>
+        </div>
+        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;">
+          <input type="checkbox" id="storyTimeCapsuleToggle" onchange="toggleStoryCapsuleUI()" style="opacity:0;width:0;height:0;">
+          <span id="storyTimeCapsuleSlider" style="position:absolute;inset:0;background:var(--border);border-radius:12px;transition:.3s;"></span>
+          <span id="storyTimeCapsuleThumb" style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></span>
+        </label>
+      </div>
+      <div id="storyCapsuleOptions" style="display:none;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;" id="capsulePresets">
+          <button class="capsule-preset-btn" onclick="selectCapsulePreset(this,'1w')" style="padding:6px 12px;border-radius:20px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit;">1 Hafta</button>
+          <button class="capsule-preset-btn" onclick="selectCapsulePreset(this,'1m')" style="padding:6px 12px;border-radius:20px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit;">1 Ay</button>
+          <button class="capsule-preset-btn" onclick="selectCapsulePreset(this,'3m')" style="padding:6px 12px;border-radius:20px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit;">3 Ay</button>
+          <button class="capsule-preset-btn" onclick="selectCapsulePreset(this,'6m')" style="padding:6px 12px;border-radius:20px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit;">6 Ay</button>
+          <button class="capsule-preset-btn" onclick="selectCapsulePreset(this,'1y')" style="padding:6px 12px;border-radius:20px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit;">1 Yıl</button>
+        </div>
+        <input type="datetime-local" id="capsuleCustomDate" style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:13px;color:var(--text);background:var(--surface);outline:none;transition:border-color .2s;" oninput="onCapsuleCustomDate(this)">
+        <div id="capsuleInfoText" style="font-size:11px;color:var(--primary);margin-top:8px;font-weight:600;text-align:center;"></div>
+      </div>
+    </div>
+
+    <button class="modal-btn" id="storyPostBtn" onclick="postStory()">Paylaş ✨</button>
     <!-- Geliştirilmiş İptal/Vazgeç Butonu -->
     <button class="modal-btn" style="background:var(--border); color:var(--text); box-shadow:none; margin-top:10px;" onclick="closeAddStory()">Vazgeç</button>
   </div>
@@ -2481,8 +2510,15 @@ window.addEventListener('DOMContentLoaded',async()=>{
   setupOTPInputs();
   applyChatBg();
   
+  // Kaydedilen temayı uygula
+  const savedTheme = localStorage.getItem('yam-theme');
+  if(savedTheme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
   document.getElementById('keyboardSelect').value = currentKeyboardTheme;
-  document.getElementById('darkToggle').checked = (localStorage.getItem('yam-theme') === 'dark');
+  document.getElementById('darkToggle').checked = (savedTheme === 'dark');
 
   const {data:{session}}=await db.auth.getSession();
   if(session){
@@ -4478,6 +4514,29 @@ function renderStories(stories){
   Object.entries(byUser).forEach(([username,ss])=>{
     ss.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
 
+    // Kapsülleri filtrele: kendi kapsüllerin hepsini gör, arkadaşlarının kilitli olanlarını sadece kilit ikonut olarak
+    const visibleStories = ss.filter(s => {
+      const capMatch = s.content && s.content.match(/^\[CAPSULE:(\d+)\]/);
+      if (!capMatch) return true; // Normal hikaye
+      const unlockAt = parseInt(capMatch[1]);
+      if (s.username === myUsername) return true; // Kendi kapsülünü her zaman göster
+      return Date.now() >= unlockAt; // Arkadaşın kapsülü sadece süresi dolduysa göster
+    });
+
+    if (!visibleStories.length && ss.every(s => s.content?.match(/^\[CAPSULE:(\d+)\]/))) {
+      // Sadece kilitli kapsüller var — kilit ikonuyla göster
+      const item=document.createElement('div');item.className='story-item';
+      const displayName = getDisplayName(username);
+      const avImg = avatarCache[username];
+      const innerContent = avImg
+        ? `<img src="${avImg}" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+        : `<span style="font-size:22px;">⏳</span>`;
+      item.innerHTML=`<div class="story-ring" style="background:linear-gradient(135deg,#6b7587,#a0aab8)"><div class="story-inner">${innerContent}</div></div><div class="story-name" style="color:var(--muted)">${esc(displayName)}</div>`;
+      item.onclick=()=>toast('🔒 Bu kapsül henüz açılmadı!');
+      bar.appendChild(item);
+      return;
+    }
+
     const item=document.createElement('div');item.className='story-item';
     const c=col(username);
     const displayName = getDisplayName(username);
@@ -4486,7 +4545,7 @@ function renderStories(stories){
       ? `<img src="${avImg}" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
       : `<span class="avatar-bg ${c}" style="width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff">${ini(displayName)}</span>`;
     item.innerHTML=`<div class="story-ring"><div class="story-inner">${innerContent}</div></div><div class="story-name">${esc(displayName)}</div>`;
-    item.onclick=()=>viewStories(ss,username);
+    item.onclick=()=>viewStories(visibleStories.length ? visibleStories : ss, username);
     bar.appendChild(item);
   });
 
@@ -4496,7 +4555,18 @@ function renderStories(stories){
   }
 }
 
-function openAddStory(){document.getElementById('addStoryModal').classList.add('open')}
+function openAddStory(){
+  document.getElementById('addStoryModal').classList.add('open');
+  // Kapsül durumunu sıfırla
+  document.getElementById('storyTimeCapsuleToggle').checked = false;
+  document.getElementById('storyCapsuleOptions').style.display = 'none';
+  document.getElementById('storyTimeCapsuleSlider').style.background = 'var(--border)';
+  document.getElementById('storyTimeCapsuleThumb').style.left = '3px';
+  document.getElementById('capsuleInfoText').textContent = '';
+  document.querySelectorAll('.capsule-preset-btn').forEach(b => b.style.borderColor = 'var(--border)');
+  document.getElementById('capsuleCustomDate').value = '';
+  _capsuleUnlockAt = null;
+}
 function closeAddStory(){
   document.getElementById('addStoryModal').classList.remove('open');
   document.getElementById('storyMedia').value = '';
@@ -4505,6 +4575,62 @@ function closeAddStory(){
   document.getElementById('storyText').value = '';
   storyMediaData = null;
   storyMediaType = null;
+  _capsuleUnlockAt = null;
+  document.getElementById('storyTimeCapsuleToggle').checked = false;
+  document.getElementById('storyCapsuleOptions').style.display = 'none';
+  document.getElementById('capsuleInfoText').textContent = '';
+}
+
+// ── ZAMANKAPSÜLü YARDIMCI FONKSİYONLARI ──
+let _capsuleUnlockAt = null;
+
+function toggleStoryCapsuleUI() {
+  const isOn = document.getElementById('storyTimeCapsuleToggle').checked;
+  const slider = document.getElementById('storyTimeCapsuleSlider');
+  const thumb = document.getElementById('storyTimeCapsuleThumb');
+  const opts = document.getElementById('storyCapsuleOptions');
+  slider.style.background = isOn ? 'var(--primary)' : 'var(--border)';
+  thumb.style.left = isOn ? '23px' : '3px';
+  opts.style.display = isOn ? 'block' : 'none';
+  if (!isOn) {
+    _capsuleUnlockAt = null;
+    document.getElementById('capsuleInfoText').textContent = '';
+    document.querySelectorAll('.capsule-preset-btn').forEach(b => b.style.borderColor = 'var(--border)');
+    document.getElementById('capsuleCustomDate').value = '';
+  }
+}
+
+function selectCapsulePreset(btn, key) {
+  document.querySelectorAll('.capsule-preset-btn').forEach(b => {
+    b.style.borderColor = 'var(--border)';
+    b.style.color = 'var(--text)';
+    b.style.background = 'var(--surface)';
+  });
+  btn.style.borderColor = 'var(--primary)';
+  btn.style.color = 'var(--primary)';
+  btn.style.background = 'var(--primary-light)';
+  document.getElementById('capsuleCustomDate').value = '';
+
+  const now = Date.now();
+  const map = { '1w': 7*24*3600000, '1m': 30*24*3600000, '3m': 90*24*3600000, '6m': 180*24*3600000, '1y': 365*24*3600000 };
+  _capsuleUnlockAt = now + (map[key] || 0);
+  const d = new Date(_capsuleUnlockAt);
+  document.getElementById('capsuleInfoText').textContent = `🗓 ${d.toLocaleDateString('tr-TR', {day:'numeric',month:'long',year:'numeric'})} tarihinde açılacak`;
+}
+
+function onCapsuleCustomDate(inp) {
+  if (!inp.value) return;
+  const ts = new Date(inp.value).getTime();
+  const now = Date.now();
+  if (ts <= now) { toast('Seçilen tarih geçmişte!'); inp.value = ''; return; }
+  _capsuleUnlockAt = ts;
+  document.querySelectorAll('.capsule-preset-btn').forEach(b => {
+    b.style.borderColor = 'var(--border)';
+    b.style.color = 'var(--text)';
+    b.style.background = 'var(--surface)';
+  });
+  const d = new Date(ts);
+  document.getElementById('capsuleInfoText').textContent = `🗓 ${d.toLocaleDateString('tr-TR', {day:'numeric',month:'long',year:'numeric'})} tarihinde açılacak`;
 }
 
 function handleMediaSelect(input) {
@@ -4537,12 +4663,24 @@ async function postStory(){
     finalContent = `[MEDIA:${storyMediaType}]${storyMediaData}[/MEDIA]` + text;
   }
 
+  // Zaman kapsülü aktifse içeriği kapsüle sar
+  const isCapsule = document.getElementById('storyTimeCapsuleToggle').checked;
+  if (isCapsule) {
+    if (!_capsuleUnlockAt) { toast('Lütfen bir açılma tarihi seçin!'); return; }
+    if (_capsuleUnlockAt <= Date.now()) { toast('Seçilen tarih geçmişte!'); return; }
+    finalContent = `[CAPSULE:${_capsuleUnlockAt}]${finalContent}[/CAPSULE]`;
+  }
+
   const {error} = await db.from('stories').insert({username:myUsername, content:finalContent, emoji: ''});
   if(error){toast('Durum paylaşılamadı!');return;}
   
   closeAddStory();
   loadStories();
-  toast('Durum paylaşıldı ✓');
+  if (isCapsule) {
+    toast('⏳ Zaman kapsülü oluşturuldu! Arkadaşların görebilir ama içeriği göremez.');
+  } else {
+    toast('Durum paylaşıldı ✓');
+  }
 }
 
 async function deleteCurrentStory() {
@@ -4627,8 +4765,68 @@ function renderStoryViewer(){
   }
   document.getElementById('svName').textContent=displayName;
   document.getElementById('svTime').textContent=timeAgo(s.created_at);
-  
-  let text = s.content;
+
+  // Kapsül kontrolü
+  const capMatch = s.content && s.content.match(/^\[CAPSULE:(\d+)\]([\s\S]*)\[\/CAPSULE\]$/);
+  if (capMatch) {
+    const unlockAt = parseInt(capMatch[1]);
+    const innerContent = capMatch[2];
+    const remaining = unlockAt - Date.now();
+    
+    if (remaining > 0 && s.username !== myUsername) {
+      // Kilitli kapsül — arkadaşın, süresi dolmamış
+      const d = new Date(unlockAt);
+      document.getElementById('svMediaWrap').innerHTML = '';
+      document.getElementById('svText').innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px;">
+          <div style="font-size:64px;animation:lockpulse 2s ease-in-out infinite;">⏳</div>
+          <div style="font-size:18px;font-weight:700;color:#fff;">Zaman Kapsülü</div>
+          <div style="font-size:14px;color:rgba(255,255,255,0.8);text-align:center;">Bu kapsül henüz açılmadı.<br><strong>${d.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})}</strong> tarihinde açılacak.</div>
+          <div style="background:rgba(255,255,255,0.15);backdrop-filter:blur(6px);border-radius:20px;padding:8px 18px;font-size:13px;color:#fff;font-weight:600;">${formatLockCountdown(remaining)} kaldı</div>
+        </div>`;
+
+      const prog=document.getElementById('storyProgress');prog.innerHTML='';
+      currentStories.forEach((_,i)=>{
+        const bar=document.createElement('div');bar.className='story-progress-bar';
+        const fill=document.createElement('div');fill.className='story-progress-fill';
+        if(i<storyIdx)fill.style.width='100%';
+        bar.appendChild(fill);prog.appendChild(bar);
+      });
+
+      document.getElementById('storyReplyBar').style.display = 'none';
+      document.getElementById('storyDeleteBtn').style.display = 'none';
+      return;
+    } else if (s.username === myUsername && remaining > 0) {
+      // Kendi kilitli kapsülü — görebilir ama etiket var
+      const d = new Date(unlockAt);
+      let text = innerContent;
+      let mediaHtml = '';
+      const mediaMatch = text.match(/\[MEDIA:(image|video)\](.*?)\[\/MEDIA\]/);
+      if (mediaMatch) {
+        const type = mediaMatch[1]; const src = mediaMatch[2];
+        mediaHtml = type === 'video' ? `<video src="${src}" class="story-media-wrap" autoplay muted loop></video>` : `<div class="story-media-wrap"><img src="${src}"></div>`;
+        text = text.replace(mediaMatch[0], '');
+      }
+      document.getElementById('svMediaWrap').innerHTML = mediaHtml;
+      document.getElementById('svText').innerHTML = `<div style="font-size:11px;background:rgba(0,0,0,0.4);padding:4px 10px;border-radius:12px;margin-bottom:8px;color:rgba(255,255,255,0.8);">⏳ Kapsül — ${d.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})} açılacak</div>${esc(text)}`;
+      document.getElementById('storyDeleteBtn').style.display = 'inline-block';
+      document.getElementById('storyReplyBar').style.display = 'none';
+
+      const prog=document.getElementById('storyProgress');prog.innerHTML='';
+      currentStories.forEach((_,i)=>{
+        const bar=document.createElement('div');bar.className='story-progress-bar';
+        const fill=document.createElement('div');fill.className='story-progress-fill';
+        if(i<storyIdx)fill.style.width='100%';
+        bar.appendChild(fill);prog.appendChild(bar);
+      });
+      return;
+    } else {
+      // Süresi dolmuş kapsül — normal gibi göster, içeriği kapsül tagından çıkar
+      s._unlockedContent = innerContent;
+    }
+  }
+
+  let text = (s._unlockedContent || s.content);
   let mediaHtml = '';
   const mediaMatch = text.match(/\[MEDIA:(image|video)\](.*?)\[\/MEDIA\]/);
   
@@ -7308,9 +7506,9 @@ function renderStoryList(stories) {
     row.onmouseover = () => row.style.background = 'var(--list-hover)';
     row.onmouseout = () => row.style.background = 'var(--surface)';
 
-    // Avatar with gradient ring
+    // Avatar with gradient ring (kapsülse farklı renk)
     const avWrap = document.createElement('div');
-    avWrap.style.cssText = 'width:58px;height:58px;border-radius:50%;padding:2.5px;background:var(--gradient);flex-shrink:0;';
+    avWrap.style.cssText = `width:58px;height:58px;border-radius:50%;padding:2.5px;background:${isCapsuleLocked ? 'linear-gradient(135deg,#6b7587,#a0aab8)' : 'var(--gradient)'};flex-shrink:0;`;
     const avInner = document.createElement('div');
     avInner.style.cssText = 'width:100%;height:100%;border-radius:50%;border:2.5px solid var(--surface);overflow:hidden;display:flex;align-items:center;justify-content:center;';
     if (avImg) {
@@ -7321,16 +7519,30 @@ function renderStoryList(stories) {
     }
     avWrap.appendChild(avInner);
 
-    // Preview content
+    // Preview content — kapsül kontrolü
     let previewText = latest.content || '';
-    const mediaMatch = previewText.match(/\[MEDIA:(image|video)\](.*?)\[\/MEDIA\]/);
-    let previewIcon = '';
-    if (mediaMatch) {
-      previewIcon = mediaMatch[1] === 'video' ? '🎥 ' : '📷 ';
-      previewText = previewText.replace(mediaMatch[0], '').trim() || (mediaMatch[1] === 'video' ? 'Video' : 'Fotoğraf');
+    const capMatch = previewText.match(/^\[CAPSULE:(\d+)\]([\s\S]*)\[\/CAPSULE\]$/);
+    let isCapsuleLocked = false;
+    if (capMatch) {
+      const unlockAt = parseInt(capMatch[1]);
+      if (Date.now() < unlockAt && username !== myUsername) {
+        isCapsuleLocked = true;
+        const d = new Date(unlockAt);
+        previewText = `⏳ Zaman Kapsülü — ${d.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})} açılacak`;
+      } else {
+        previewText = capMatch[2]; // İçeriği kapsülden çıkar
+      }
     }
-    if (!previewText) previewText = previewIcon ? previewIcon.trim() : '…';
-    else previewText = previewIcon + previewText;
+    if (!isCapsuleLocked) {
+      const mediaMatch = previewText.match(/\[MEDIA:(image|video)\](.*?)\[\/MEDIA\]/);
+      let previewIcon = '';
+      if (mediaMatch) {
+        previewIcon = mediaMatch[1] === 'video' ? '🎥 ' : '📷 ';
+        previewText = previewText.replace(mediaMatch[0], '').trim() || (mediaMatch[1] === 'video' ? 'Video' : 'Fotoğraf');
+      }
+      if (!previewText) previewText = previewIcon ? previewIcon.trim() : '…';
+      else previewText = previewIcon + previewText;
+    }
 
     const info = document.createElement('div');
     info.style.cssText = 'flex:1;min-width:0;';
@@ -7350,7 +7562,13 @@ function renderStoryList(stories) {
     row.appendChild(avWrap);
     row.appendChild(info);
     row.appendChild(meta);
-    row.onclick = () => viewStories(ss, username);
+    row.onclick = () => {
+      if (isCapsuleLocked) {
+        toast('🔒 Bu kapsül henüz açılmadı!');
+      } else {
+        viewStories(ss, username);
+      }
+    };
     list.appendChild(row);
   });
 }
