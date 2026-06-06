@@ -1962,7 +1962,7 @@ async function sendLockedMessage() {
   const inp = document.getElementById('msgInput');
   const text = inp.value.trim();
   if (!text) { alert('Göndermek için mesaj yazın.'); closeLockTimer(); return; }
-  const unlockAt = new Date(Date.now() + _lockSeconds * 1000).toISOString();
+  const unlockAt = Date.now() + _lockSeconds * 1000;
   const lockedTag = `[LOCKED:${unlockAt}:${_lockDesignKey}]${text}[/LOCKED]`;
   closeLockTimer();
   inp.value = '';
@@ -1971,12 +1971,13 @@ async function sendLockedMessage() {
 }
 
 function renderLockedBubble(text, isMine) {
-  const match = text.match(/^\[LOCKED:([^:]+):([^\]]+)\]([\s\S]*)\[\/LOCKED\]$/);
+  // Format: [LOCKED:<unixMs>:<designKey>]...[/LOCKED]
+  const match = text.match(/^\[LOCKED:(\d+):([^\]]+)\]([\s\S]*)\[\/LOCKED\]$/);
   if (!match) return null;
-  const unlockAt = new Date(match[1]);
+  const unlockAt = parseInt(match[1], 10);
   const designKey = match[2];
   const innerText = match[3];
-  const remaining = unlockAt.getTime() - Date.now();
+  const remaining = unlockAt - Date.now();
   const designIcons = { lock:'🔒', gift:'🎁', surprise:'🎊', cake:'🎂', love:'💌', mystery:'🎩' };
   const icon = designIcons[designKey] || '🔒';
   if (remaining > 0) {
