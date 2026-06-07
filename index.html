@@ -1493,6 +1493,21 @@ position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--
   </div>
 </div>
 
+<div id="autoLoginScreen" class="screen" style="background:var(--gradient)">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:20px;color:#fff">
+    <div style="width:80px;height:80px;border-radius:24px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.3)">
+      <img src="https://i.ibb.co/6cdSDgr3/20260530-210205-0000.png" alt="YAM" style="width:100%;height:100%;object-fit:cover">
+    </div>
+    <div style="font-size:22px;font-weight:700;letter-spacing:-.5px">YAM</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.8);animation:dotpulse 1.2s infinite 0s"></div>
+      <div style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.8);animation:dotpulse 1.2s infinite 0.2s"></div>
+      <div style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.8);animation:dotpulse 1.2s infinite 0.4s"></div>
+    </div>
+    <style>@keyframes dotpulse{0%,80%,100%{opacity:.3;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}</style>
+  </div>
+</div>
+
 <div id="loginScreen" class="screen active">
   <div class="auth-card">
     <div class="auth-logo" style="background:none;box-shadow:none;transform:none;overflow:hidden;padding:0">
@@ -2516,33 +2531,48 @@ window.addEventListener('DOMContentLoaded',async()=>{
   document.getElementById('keyboardSelect').value = currentKeyboardTheme;
   document.getElementById('darkToggle').checked = (savedTheme === 'dark');
 
-  let {data:{session}}=await db.auth.getSession();
-
-  // LocalStorage'dan kaydedilmiş session yoksa bile kullanıcıyı giriş yapmış say
-  if(!session){
-    const savedSession = _loadSavedSession();
-    if(savedSession){
-      try {
+  // Eğer daha önce giriş yaptıysak, login ekranını HİÇ gösterme
+  // Önce localStorage'daki kayıtlı session'ı kontrol et
+  const savedSession = _loadSavedSession();
+  if(savedSession){
+    // Yükleniyor göstergesi — kullanıcı login ekranı görmez
+    _showLoadingScreen();
+    try {
+      // Önce mevcut Supabase session'ını dene
+      let {data:{session}} = await db.auth.getSession();
+      
+      if(!session){
+        // Supabase session yoksa kayıtlı token'larla yenile
         const {data, error} = await db.auth.setSession({
           access_token: savedSession.access_token,
           refresh_token: savedSession.refresh_token
         });
         if(!error && data.session){
           session = data.session;
-          _persistSession(data.session); // token'ları güncelle
-        } else {
-          _clearSavedSession();
+          _persistSession(data.session);
         }
-      } catch(e){
-        _clearSavedSession();
+      } else {
+        _persistSession(session);
       }
-    }
+
+      if(session){
+        myUser = session.user;
+        myEmail = myUser.email;
+        await loadProfile();
+        return; // Başarılı, login ekranına hiç gitmiyoruz
+      }
+    } catch(e){}
+    // Buraya gelindiyse token geçersiz — session'ı temizle ve login'e gönder
+    _clearSavedSession();
+    _hideLoadingScreen();
   }
 
+  // Kayıtlı session yoksa normal Supabase session kontrolü
+  const {data:{session}} = await db.auth.getSession();
   if(session){
-    myUser=session.user;
-    myEmail=myUser.email;
-    _persistSession(session); // Her başarılı girişte yenile
+    myUser = session.user;
+    myEmail = myUser.email;
+    _persistSession(session);
     await loadProfile();
   } else {
     showScreen('loginScreen');
@@ -2574,6 +2604,14 @@ function _loadSavedSession(){
 }
 function _clearSavedSession(){
   localStorage.removeItem('yam-persistent-session');
+}
+function _showLoadingScreen(){
+  const el = document.getElementById('autoLoginScreen');
+  if(el) el.classList.add('active');
+}
+function _hideLoadingScreen(){
+  const el = document.getElementById('autoLoginScreen');
+  if(el) el.classList.remove('active');
 }
 
 // İfade (Reaction) Seçici Kapatma Denetimi
@@ -2734,6 +2772,7 @@ function saveBlockedList() {
 
 async function loadProfile(){
   const {data}=await db.from('profiles').select('*').eq('id',myUser.id).single();
+  _hideLoadingScreen();
   if(!data){showScreen('setupScreen');return;}
   myProfile=data;
   myUsername=data.username;
