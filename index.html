@@ -2168,7 +2168,28 @@ const _yamStorage={
   setItem:(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}},
   removeItem:(k)=>{try{localStorage.removeItem(k);}catch(e){}}
 };
-const db=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'yam-sb-auth',storage:_yamStorage}});
+const db=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{
+  persistSession:true,
+  autoRefreshToken:true,
+  storageKey:'yam-sb-auth',
+  storage:_yamStorage,
+  detectSessionInUrl:false,
+  flowType:'pkce'
+}});
+
+// Auth state değişince Player ID'yi kaydet
+db.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' && session) {
+    myUser = session.user;
+    myEmail = session.user.email;
+    // Player ID'yi 3 sn sonra kaydet (OneSignal yüklensin)
+    setTimeout(savePlayerIdToSupabase, 3000);
+  }
+  if (event === 'TOKEN_REFRESHED' && session) {
+    // Token yenilenince Player ID'yi tekrar kaydet
+    setTimeout(savePlayerIdToSupabase, 1000);
+  }
+});
 
 // STATE
 let myUser=null, myProfile=null, myUsername='', myEmail='';
@@ -2890,6 +2911,27 @@ function closeChat() {
 }
 
 // ── START APP ──
+async function savePlayerIdToSupabase() {
+  try {
+    if (!myUser) return;
+    // OneSignal hazır olana kadar bekle
+    let attempts = 0;
+    while (attempts < 10) {
+      if (window.OneSignal) {
+        const playerId = OneSignal.User?.PushSubscription?.id;
+        if (playerId) {
+          await db.from('profiles').update({onesignal_player_id: playerId}).eq('id', myUser.id);
+          console.log('✅ Player ID kaydedildi:', playerId);
+          return;
+        }
+      }
+      await new Promise(r => setTimeout(r, 1000));
+      attempts++;
+    }
+    console.log('⚠️ OneSignal Player ID alınamadı');
+  } catch(e) { console.log('savePlayerID err:', e); }
+}
+
 async function startApp(){
   showScreen(null);
   document.getElementById('app').style.display='flex';
@@ -6429,18 +6471,7 @@ if (document.readyState === 'loading') {
 <script>
 const SUPABASE_NOTIFY_URL='https://npvtabfybgsamhnycmln.supabase.co/functions/v1/dynamic-api';
 
-// OneSignal Player ID'yi Supabase'e kaydet
-async function savePlayerIdToSupabase() {
-  try {
-    if(typeof OneSignal === 'undefined') return;
-    // Kısa bekle — OneSignal yüklensin
-    await new Promise(r => setTimeout(r, 2000));
-    const playerId = await OneSignal.User.PushSubscription.id;
-    if(!playerId || !myUser) return;
-    const {error} = await db.from('profiles').update({onesignal_player_id: playerId}).eq('id', myUser.id);
-    if(!error) console.log('Player ID kaydedildi:', playerId);
-  } catch(e) { console.log('savePlayerID err:', e); }
-}
+// savePlayerIdToSupabase yukarıda tanımlandı
 
 // Bildirim gönder — Player ID üzerinden
 async function sendPushNotification(recipientUsername, sender, message) {
