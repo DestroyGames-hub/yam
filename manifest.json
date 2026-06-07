@@ -12,6 +12,7 @@
   "lang": "tr",
   "categories": ["social", "communication"],
   "prefer_related_applications": false,
+  "gcm_sender_id": "103953800507",
   "icons": [
     {
       "src": "/icon.png",
