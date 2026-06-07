@@ -2163,7 +2163,12 @@ setInterval(() => {
 const SUPABASE_URL='https://npvtabfybgsamhnycmln.supabase.co';
 const SUPABASE_KEY='sb_publishable_QiRmRAQvS4KyKkxf5AgvjA_FIRHYtDL';
 const {createClient}=supabase;
-const db=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+const _yamStorage={
+  getItem:(k)=>{try{return localStorage.getItem(k);}catch(e){return null;}},
+  setItem:(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}},
+  removeItem:(k)=>{try{localStorage.removeItem(k);}catch(e){}}
+};
+const db=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'yam-sb-auth',storage:_yamStorage}});
 
 // STATE
 let myUser=null, myProfile=null, myUsername='', myEmail='';
@@ -2531,48 +2536,11 @@ window.addEventListener('DOMContentLoaded',async()=>{
   document.getElementById('keyboardSelect').value = currentKeyboardTheme;
   document.getElementById('darkToggle').checked = (savedTheme === 'dark');
 
-  // Eğer daha önce giriş yaptıysak, login ekranını HİÇ gösterme
-  // Önce localStorage'daki kayıtlı session'ı kontrol et
-  const savedSession = _loadSavedSession();
-  if(savedSession){
-    // Yükleniyor göstergesi — kullanıcı login ekranı görmez
-    _showLoadingScreen();
-    try {
-      // Önce mevcut Supabase session'ını dene
-      let {data:{session}} = await db.auth.getSession();
-      
-      if(!session){
-        // Supabase session yoksa kayıtlı token'larla yenile
-        const {data, error} = await db.auth.setSession({
-          access_token: savedSession.access_token,
-          refresh_token: savedSession.refresh_token
-        });
-        if(!error && data.session){
-          session = data.session;
-          _persistSession(data.session);
-        }
-      } else {
-        _persistSession(session);
-      }
-
-      if(session){
-        myUser = session.user;
-        myEmail = myUser.email;
-        await loadProfile();
-        return; // Başarılı, login ekranına hiç gitmiyoruz
-      }
-    } catch(e){}
-    // Buraya gelindiyse token geçersiz — session'ı temizle ve login'e gönder
-    _clearSavedSession();
-    _hideLoadingScreen();
-  }
-
-  // Kayıtlı session yoksa normal Supabase session kontrolü
+  // Supabase kendi storage'ından token'ı okur — token varsa session döner, yoksa null
   const {data:{session}} = await db.auth.getSession();
   if(session){
     myUser = session.user;
     myEmail = myUser.email;
-    _persistSession(session);
     await loadProfile();
   } else {
     showScreen('loginScreen');
@@ -2674,8 +2642,6 @@ async function verifyOTP(){
   myUser=data.user;myEmail=myUser.email;
   const remember=document.getElementById('rememberMe').checked;
   if(!remember)await db.auth.setSession({access_token:data.session.access_token,refresh_token:data.session.refresh_token});
-  // Her durumda session'ı localStorage'a kaydet (bildirimler için 7/24 oturum)
-  _persistSession(data.session);
   clearInterval(otpTimerInterval);
   await loadProfile();
 }
@@ -2772,14 +2738,10 @@ function saveBlockedList() {
 
 async function loadProfile(){
   const {data}=await db.from('profiles').select('*').eq('id',myUser.id).single();
-  _hideLoadingScreen();
   if(!data){showScreen('setupScreen');return;}
   myProfile=data;
   myUsername=data.username;
   loadSavedContacts();
-  // Güncel session token'larını yenile
-  const {data:{session}} = await db.auth.getSession();
-  if(session) _persistSession(session);
   updateAccountsStorage();
   startApp();
 }
@@ -2819,7 +2781,6 @@ async function logout(){
   localStorage.setItem('yam-accounts', JSON.stringify(filtered));
 
   if(window.oneSignalLogout)await window.oneSignalLogout();
-  _clearSavedSession();
   await db.auth.signOut();
   if(presenceChannel)db.removeChannel(presenceChannel);
   location.reload();
