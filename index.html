@@ -2516,15 +2516,65 @@ window.addEventListener('DOMContentLoaded',async()=>{
   document.getElementById('keyboardSelect').value = currentKeyboardTheme;
   document.getElementById('darkToggle').checked = (savedTheme === 'dark');
 
-  const {data:{session}}=await db.auth.getSession();
+  let {data:{session}}=await db.auth.getSession();
+
+  // LocalStorage'dan kaydedilmiş session yoksa bile kullanıcıyı giriş yapmış say
+  if(!session){
+    const savedSession = _loadSavedSession();
+    if(savedSession){
+      try {
+        const {data, error} = await db.auth.setSession({
+          access_token: savedSession.access_token,
+          refresh_token: savedSession.refresh_token
+        });
+        if(!error && data.session){
+          session = data.session;
+          _persistSession(data.session); // token'ları güncelle
+        } else {
+          _clearSavedSession();
+        }
+      } catch(e){
+        _clearSavedSession();
+      }
+    }
+  }
+
   if(session){
     myUser=session.user;
     myEmail=myUser.email;
+    _persistSession(session); // Her başarılı girişte yenile
     await loadProfile();
   } else {
     showScreen('loginScreen');
   }
 });
+
+// ── SESSION PERSIST HELPERS ──
+function _persistSession(session){
+  try {
+    const payload = {
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+      user_id: session.user.id,
+      email: session.user.email,
+      saved_at: Date.now()
+    };
+    localStorage.setItem('yam-persistent-session', JSON.stringify(payload));
+  } catch(e){}
+}
+function _loadSavedSession(){
+  try {
+    const raw = localStorage.getItem('yam-persistent-session');
+    if(!raw) return null;
+    const obj = JSON.parse(raw);
+    // 30 günden eski kayıtları geçersiz say
+    if(Date.now() - (obj.saved_at||0) > 30 * 24 * 60 * 60 * 1000) { _clearSavedSession(); return null; }
+    return obj;
+  } catch(e){ return null; }
+}
+function _clearSavedSession(){
+  localStorage.removeItem('yam-persistent-session');
+}
 
 // İfade (Reaction) Seçici Kapatma Denetimi
 window.addEventListener('click', (e) => {
@@ -2586,6 +2636,8 @@ async function verifyOTP(){
   myUser=data.user;myEmail=myUser.email;
   const remember=document.getElementById('rememberMe').checked;
   if(!remember)await db.auth.setSession({access_token:data.session.access_token,refresh_token:data.session.refresh_token});
+  // Her durumda session'ı localStorage'a kaydet (bildirimler için 7/24 oturum)
+  _persistSession(data.session);
   clearInterval(otpTimerInterval);
   await loadProfile();
 }
@@ -2686,6 +2738,9 @@ async function loadProfile(){
   myProfile=data;
   myUsername=data.username;
   loadSavedContacts();
+  // Güncel session token'larını yenile
+  const {data:{session}} = await db.auth.getSession();
+  if(session) _persistSession(session);
   updateAccountsStorage();
   startApp();
 }
@@ -2725,6 +2780,7 @@ async function logout(){
   localStorage.setItem('yam-accounts', JSON.stringify(filtered));
 
   if(window.oneSignalLogout)await window.oneSignalLogout();
+  _clearSavedSession();
   await db.auth.signOut();
   if(presenceChannel)db.removeChannel(presenceChannel);
   location.reload();
