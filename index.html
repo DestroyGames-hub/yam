@@ -6302,10 +6302,32 @@ function initOneSignal() {
     await OneSignal.init({
       appId: ONESIGNAL_APP_ID,
       serviceWorkerParam: { scope: '/' },
-      serviceWorkerPath: 'OneSignalSDKWorker.js',
+      serviceWorkerPath: '/OneSignalSDKWorker.js',
       notifyButton: { enable: false },
       allowLocalhostAsSecureOrigin: true,
+      promptOptions: {
+        slidedown: {
+          enabled: true,
+          autoPrompt: true,
+          timeDelay: 3,
+          pageViews: 1
+        }
+      }
     });
+
+    // İzin iste
+    try { await OneSignal.Notifications.requestPermission(); } catch(e) {}
+
+    // Player ID'yi Supabase'e kaydet
+    setTimeout(async () => {
+      try {
+        const subId = OneSignal.User.PushSubscription.id;
+        if (subId && window.myUser) {
+          await db.from('profiles').update({ onesignal_player_id: subId }).eq('id', myUser.id);
+          console.log('✅ Player ID kaydedildi:', subId);
+        }
+      } catch(e) {}
+    }, 4000);
 
     window.oneSignalLogin = async function(username, email) {
       try {
