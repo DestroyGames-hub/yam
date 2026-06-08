@@ -32,6 +32,42 @@
   --search-bg:#252830;--list-hover:#22252e;--section-label:#4a5060;--online:#22c55e;
 }
 
+/* GÖKTÜRK KAĞANLIĞI TEMASİ */
+[data-theme="goktürk"] {
+  --primary:#00bcd4; --primary-dark:#0097a7; --primary-light:#e0f7fa;
+  --gradient:linear-gradient(135deg,#00bcd4 0%,#26c6da 100%);
+  --bg:#071a1f; --surface:#0d2a31; --header:#0d2a31; --header-text:#b2ebf2;
+  --text:#e0f7fa; --muted:#4a8a95; --border:#0f3a45;
+  --bubble-me:#00bcd4; --bubble-them:#0f3540;
+  --danger:#ef4444;
+  --tab-bar:#0d2a31;--tab-active:#26c6da;--tab-inactive:#2a6070;
+  --search-bg:#0f3540;--list-hover:#102e38;--section-label:#2a6070;--online:#22c55e;
+}
+
+/* LAİK ATAK (TÜRKİYE) TEMASİ */
+[data-theme="türkiye"] {
+  --primary:#e30a17; --primary-dark:#b00812; --primary-light:#fde8ea;
+  --gradient:linear-gradient(135deg,#e30a17 0%,#ff3d47 100%);
+  --bg:#f5f5f5; --surface:#ffffff; --header:#e30a17; --header-text:#ffffff;
+  --text:#1a1a1a; --muted:#888888; --border:#e0e0e0;
+  --bubble-me:#e30a17; --bubble-them:#ffffff;
+  --danger:#c00;
+  --tab-bar:#ffffff;--tab-active:#e30a17;--tab-inactive:#aaaaaa;
+  --search-bg:#eeeeee;--list-hover:#f8f0f0;--section-label:#aaaaaa;--online:#22c55e;
+}
+
+/* OSMANLI TEMASİ */
+[data-theme="osmanlı"] {
+  --primary:#6b1f3a; --primary-dark:#4a1228; --primary-light:#f5e6ec;
+  --gradient:linear-gradient(135deg,#6b1f3a 0%,#9c3560 100%);
+  --bg:#1c0f12; --surface:#251318; --header:#251318; --header-text:#f0d4bc;
+  --text:#eacaa8; --muted:#7a5a4a; --border:#3a1f25;
+  --bubble-me:#6b1f3a; --bubble-them:#2e1518;
+  --danger:#ef4444;
+  --tab-bar:#251318;--tab-active:#c06080;--tab-inactive:#5a3040;
+  --search-bg:#2e1518;--list-hover:#2a1215;--section-label:#5a3a45;--online:#22c55e;
+}
+
 html,body{height:100%;width:100%;overflow:hidden;font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg)}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0}
 
@@ -587,6 +623,45 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0}
 .tab-label { font-size: 10px; font-weight: 600; letter-spacing: .3px; }
 
 position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;border-radius:14px;padding:11px 22px;font-size:14px;font-weight:500;z-index:999;white-space:nowrap;box-shadow:0 10px 20px rgba(0,0,0,0.15);animation:bpop .3s ease}
+
+/* THEME CHAT BACKGROUNDS via CSS - not affected by innerHTML resets */
+#chatView { position: relative; }
+#messages { position: relative; z-index: 1; }
+#chatView::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+[data-theme="goktürk"] #chatView::before {
+  background-image: url('https://i.ibb.co/TDBPdDKD/HD-wallpaper-turk-duvar-kagidi-gokturk-turkish.jpg');
+}
+[data-theme="türkiye"] #chatView::before {
+  background-image: url('https://i.ibb.co/M52mc64Y/3af2952b81c25fc8dc54513f2c69d1d4.jpg');
+}
+[data-theme="osmanlı"] #chatView::before {
+  background-image: url('https://i.ibb.co/dsvNRFqJ/1780946297090.jpg');
+}
+
+/* THEME SELECTOR LIST */
+.theme-option {
+  display:flex;align-items:center;gap:12px;
+  padding:13px 16px;border-radius:16px;
+  background:var(--surface);border:2px solid var(--border);
+  cursor:pointer;transition:all .2s;
+}
+.theme-option:hover { border-color:var(--primary);background:var(--list-hover); }
+.theme-option.active { border-color:var(--primary);background:var(--primary-light); }
+.theme-icon { font-size:26px;flex-shrink:0;width:36px;text-align:center; }
+.theme-info { flex:1;min-width:0; }
+.theme-name { font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px; }
+.theme-desc { font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px; }
+.theme-check { font-size:18px;font-weight:700;color:var(--primary);opacity:0;transition:.2s;flex-shrink:0; }
+.theme-option.active .theme-check { opacity:1; }
 
 /* AVATAR COLORS */
 .av0{background:linear-gradient(135deg,#f43f5e,#e11d48)}.av1{background:linear-gradient(135deg,#f59e0b,#d97706)}.av2{background:linear-gradient(135deg,#10b981,#059669)}
@@ -1792,10 +1867,51 @@ position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--
     <div class="panel-title">Ayarlar</div>
   </div>
   <div class="panel-body">
-    <div class="setting-row">
-      <span>Karanlık Tema 🌙</span>
-      <input type="checkbox" class="toggle-switch" id="darkToggle" onchange="toggleDark()">
+    <div class="sec-label" style="padding-top:16px">Tema Seçimi</div>
+    <div id="themeList" style="padding:8px 12px;display:flex;flex-direction:column;gap:8px;">
+      <div class="theme-option" data-theme-value="light" onclick="selectTheme('light')">
+        <span class="theme-icon">☀️</span>
+        <div class="theme-info">
+          <div class="theme-name">Aydınlık Tema</div>
+          <div class="theme-desc">Varsayılan açık tema</div>
+        </div>
+        <span class="theme-check" id="themeCheck-light">✓</span>
+      </div>
+      <div class="theme-option" data-theme-value="dark" onclick="selectTheme('dark')">
+        <span class="theme-icon">🌙</span>
+        <div class="theme-info">
+          <div class="theme-name">Karanlık Tema</div>
+          <div class="theme-desc">Gözlere dost koyu tema</div>
+        </div>
+        <span class="theme-check" id="themeCheck-dark"></span>
+      </div>
+      <div class="theme-option" data-theme-value="goktürk" onclick="selectTheme('goktürk')">
+        <span class="theme-icon">🐺</span>
+        <div class="theme-info">
+          <div class="theme-name">Göktürk Kağanlığı</div>
+          <div class="theme-desc">GÖKTÜRK TEMASİ</div>
+        </div>
+        <span class="theme-check" id="themeCheck-goktürk"></span>
+      </div>
+      <div class="theme-option" data-theme-value="türkiye" onclick="selectTheme('türkiye')">
+        <span class="theme-icon">🇹🇷</span>
+        <div class="theme-info">
+          <div class="theme-name">Laik Atak</div>
+          <div class="theme-desc">TÜRKİYE TEMASİ</div>
+        </div>
+        <span class="theme-check" id="themeCheck-türkiye"></span>
+      </div>
+      <div class="theme-option" data-theme-value="osmanlı" onclick="selectTheme('osmanlı')">
+        <span class="theme-icon">🌙</span>
+        <div class="theme-info">
+          <div class="theme-name">Osmanlı</div>
+          <div class="theme-desc">OSMANLI TEMASİ</div>
+        </div>
+        <span class="theme-check" id="themeCheck-osmanlı"></span>
+      </div>
     </div>
+    <!-- hidden checkbox for backward compat -->
+    <input type="checkbox" id="darkToggle" style="display:none">
     
     <!-- Özel Arka Plan (Bana Özel) -->
     <div class="profile-section" style="padding-top:16px;">
@@ -2306,17 +2422,20 @@ function handleChatBgSelect(input) {
 }
 
 function applyChatBg() {
-  const bg = localStorage.getItem('yam-chat-bg');
+  const userBg = localStorage.getItem('yam-chat-bg');
   const msgs = document.getElementById('messages');
   const btn = document.getElementById('removeBgBtn');
-  if(bg) {
-      msgs.style.backgroundImage = `url('${bg}')`;
-      msgs.style.backgroundSize = 'cover';
-      msgs.style.backgroundPosition = 'center';
-      if(btn) btn.style.display = 'block';
+  if(userBg) {
+    msgs.style.backgroundImage = `url('${userBg}')`;
+    msgs.style.backgroundSize = 'cover';
+    msgs.style.backgroundPosition = 'center';
+    msgs.style.backgroundAttachment = 'local';
+    if(btn) btn.style.display = 'block';
   } else {
-      msgs.style.backgroundImage = 'none';
-      if(btn) btn.style.display = 'none';
+    msgs.style.backgroundImage = '';
+    msgs.style.backgroundSize = '';
+    msgs.style.backgroundPosition = '';
+    if(btn) btn.style.display = 'none';
   }
 }
 
@@ -2557,14 +2676,17 @@ window.addEventListener('DOMContentLoaded',async()=>{
   setupOTPInputs();
   applyChatBg();
 
-  const savedTheme = localStorage.getItem('yam-theme');
-  if(savedTheme === 'dark'){
-    document.documentElement.setAttribute('data-theme','dark');
-  } else {
-    document.documentElement.removeAttribute('data-theme');
+  const savedTheme = localStorage.getItem('yam-theme') || 'light';
+  document.documentElement.removeAttribute('data-theme');
+  if(savedTheme !== 'light') {
+    document.documentElement.setAttribute('data-theme', savedTheme);
   }
   document.getElementById('keyboardSelect').value = currentKeyboardTheme;
   document.getElementById('darkToggle').checked = (savedTheme === 'dark');
+  document.querySelectorAll('.theme-option').forEach(el => {
+    el.classList.toggle('active', el.getAttribute('data-theme-value') === savedTheme);
+  });
+  applyChatBg();
 
   // Önce mevcut session'ı al, token süresi dolmuşsa refresh token ile yenile
   let {data:{session}} = await db.auth.getSession();
@@ -3135,11 +3257,30 @@ function openSettings() {
   openPanel('settingsPanel');
 }
 
+const THEME_BACKGROUNDS = {
+  'goktürk': 'https://i.ibb.co/TDBPdDKD/HD-wallpaper-turk-duvar-kagidi-gokturk-turkish.jpg',
+  'türkiye': 'https://i.ibb.co/M52mc64Y/3af2952b81c25fc8dc54513f2c69d1d4.jpg',
+  'osmanlı': 'https://i.ibb.co/dsvNRFqJ/1780946297090.jpg',
+};
+
+function selectTheme(theme) {
+  document.documentElement.removeAttribute('data-theme');
+  if(theme !== 'light') {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+  localStorage.setItem('yam-theme', theme);
+  // Apply background (theme bg or user bg) via central function
+  applyChatBg();
+  // Update UI
+  document.querySelectorAll('.theme-option').forEach(el => {
+    el.classList.toggle('active', el.getAttribute('data-theme-value') === theme);
+  });
+  document.getElementById('darkToggle').checked = (theme === 'dark');
+}
+
 function toggleDark() {
   const isDark = document.getElementById('darkToggle').checked;
-  if(isDark) document.documentElement.setAttribute('data-theme', 'dark');
-  else document.documentElement.removeAttribute('data-theme');
-  localStorage.setItem('yam-theme', isDark ? 'dark' : 'light');
+  selectTheme(isDark ? 'dark' : 'light');
 }
 
 // ── CUSTOM KEYBOARD AYARLARI ──
@@ -8198,6 +8339,7 @@ window.switchChat = function(...args) {
   const result = _origSwitchChat ? _origSwitchChat.apply(this, args) : undefined;
   const bar = document.getElementById('bottomTabBar');
   if (bar) bar.style.display = 'none';
+  applyChatBg();
   return result;
 };
 const _origCloseChat = window.closeChat;
