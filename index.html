@@ -686,7 +686,7 @@ position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--
   flex-direction: column;
   gap: 6px;
   padding: 8px;
-  height: 100%;
+  flex: 1;
   box-sizing: border-box;
 }
 .custom-kb-row {
@@ -725,6 +725,14 @@ position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--
 
 [data-kb="large"] .custom-kb-grid { background: #fff7ed; }
 [data-kb="large"] .custom-kb-key { background: #f97316; color: #fff; font-size: 24px; font-weight: 800; border-radius: 12px; }
+
+/* Modern Minimal — fotoğraftaki gibi koyu arka plan, gri tuşlar, küçük harf */
+[data-kb="modern"] .custom-kb-grid { background: #1a1a1a; gap: 10px; padding: 10px 8px; }
+[data-kb="modern"] .custom-kb-row { gap: 7px; flex: 1; }
+[data-kb="modern"] .custom-kb-key { background: #3a3a3c; color: #ffffff; border-radius: 10px; font-size: 18px; font-weight: 400; box-shadow: 0 3px 0 #000; height: auto; flex: 1; }
+[data-kb="modern"] .custom-kb-key.special { background: #636366; color: #ffffff; font-size: 15px; }
+[data-kb="modern"] .custom-kb-key.space { background: #636366; color: #ffffff; font-size: 16px; }
+[data-kb="modern"] .custom-kb-key:active { transform: scale(0.95); box-shadow: 0 1px 0 #000; }
 
 /* Ses Kaydı & Sesli Mesaj Elemanları */
 .voice-rec-btn {
@@ -1805,6 +1813,7 @@ position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--
         <option value="indigo">🌊 İndigo Tema (Özel Klavye)</option>
         <option value="dev">💻 Yazılımcı Stili (Özel Klavye)</option>
         <option value="large">🔠 Büyük Harf (Özel Klavye)</option>
+        <option value="modern">🖤 Modern Minimal (Özel Klavye)</option>
       </select>
       <div style="font-size:11px; color:var(--muted); margin-top:6px;">Özel klavye seçildiğinde standart klavyeniz açılmaz.</div>
     </div>
@@ -2667,7 +2676,9 @@ async function verifyOTP(){
   if(error){toast('Hatalı kod! Lütfen tekrar deneyin.');return;}
   myUser=data.user;myEmail=myUser.email;
   // Token'ları her zaman localStorage'a kaydet — kullanıcı çıkış yapana kadar oturum açık kalır
-  yamSaveTokens(data.session.access_token, data.session.refresh_token);
+  if(data.session) {
+    _persistSession(data.session);
+  }
   clearInterval(otpTimerInterval);
   await loadProfile();
 }
@@ -3329,53 +3340,128 @@ function renderCustomKeyboard() {
   kbdWrapper.className = 'custom-kb-grid';
   kbdWrapper.setAttribute('data-kb', currentKeyboardTheme);
 
-  const row1 = ['Q','W','E','R','T','Y','U','I','O','P','Ğ','Ü'];
-  const row2 = ['A','S','D','F','G','H','J','K','L','Ş','İ'];
-  const row3 = ['Z','X','C','V','B','N','M','Ö','Ç'];
-  
+  // Türkçe Q klavye — fotoğraftaki dizilim (satır1: q w e r t y u ı o p ğ ü)
+  // Büyük harf karşılıkları: ı→I, i→İ, ğ→Ğ, ü→Ü, ş→Ş, ö→Ö, ç→Ç
+  const trLower = ['q','w','e','r','t','y','u','ı','o','p','ğ','ü',
+                   'a','s','d','f','g','h','j','k','l','ş','i',
+                   'z','x','c','v','b','n','m','ö','ç'];
+  const trUpper = ['Q','W','E','R','T','Y','U','I','O','P','Ğ','Ü',
+                   'A','S','D','F','G','H','J','K','L','Ş','İ',
+                   'Z','X','C','V','B','N','M','Ö','Ç'];
+
+  let kbdShiftOn = currentKeyboardTheme === 'large';
+
+  const getTrChar = (lowerChar) => {
+    const idx = trLower.indexOf(lowerChar);
+    if(idx === -1) return lowerChar;
+    return kbdShiftOn ? trUpper[idx] : trLower[idx];
+  };
+
+  const row1keys = ['q','w','e','r','t','y','u','ı','o','p','ğ','ü'];
+  const row2keys = ['a','s','d','f','g','h','j','k','l','ş','i'];
+  const row3keys = ['z','x','c','v','b','n','m','ö','ç'];
+
   const createRow = (keys) => {
     const rowDiv = document.createElement('div');
     rowDiv.className = 'custom-kb-row';
     keys.forEach(k => {
       const btn = document.createElement('button');
       btn.className = 'custom-kb-key';
-      btn.textContent = k;
-      const printChar = currentKeyboardTheme === 'large' ? k : k.toLowerCase();
-      btn.onclick = () => insertChar(printChar);
+      btn.dataset.lower = k;
+      btn.textContent = kbdShiftOn ? trUpper[trLower.indexOf(k)] || k.toUpperCase() : k;
+      btn.onclick = () => insertChar(getTrChar(k));
       rowDiv.appendChild(btn);
     });
     return rowDiv;
   };
 
-  kbdWrapper.appendChild(createRow(row1));
-  kbdWrapper.appendChild(createRow(row2));
-  kbdWrapper.appendChild(createRow(row3));
+  const updateKeyLabels = () => {
+    kbdWrapper.querySelectorAll('.custom-kb-key[data-lower]').forEach(btn => {
+      const lk = btn.dataset.lower;
+      const idx = trLower.indexOf(lk);
+      btn.textContent = kbdShiftOn ? (idx !== -1 ? trUpper[idx] : lk.toUpperCase()) : lk;
+    });
+  };
 
-  const row4 = document.createElement('div');
-  row4.className = 'custom-kb-row';
-  
-  const backBtn = document.createElement('button');
-  backBtn.className = 'custom-kb-key special';
-  backBtn.innerHTML = '⌫';
-  backBtn.onclick = () => {
+  kbdWrapper.appendChild(createRow(row1keys));
+  kbdWrapper.appendChild(createRow(row2keys));
+
+  // Satır 3: Shift + harfler + Sil (fotoğraftaki gibi)
+  const row3Div = document.createElement('div');
+  row3Div.className = 'custom-kb-row';
+
+  const shiftBtn = document.createElement('button');
+  shiftBtn.className = 'custom-kb-key special';
+  shiftBtn.innerHTML = '⬆';
+  shiftBtn.style.fontSize = '16px';
+  shiftBtn.onclick = () => {
+    kbdShiftOn = !kbdShiftOn;
+    shiftBtn.style.opacity = kbdShiftOn ? '1' : '0.5';
+    if(currentKeyboardTheme === 'large') shiftBtn.style.opacity = '1';
+    updateKeyLabels();
+  };
+  if(!kbdShiftOn) shiftBtn.style.opacity = '0.5';
+  row3Div.appendChild(shiftBtn);
+
+  row3keys.forEach(k => {
+    const btn = document.createElement('button');
+    btn.className = 'custom-kb-key';
+    btn.dataset.lower = k;
+    btn.textContent = kbdShiftOn ? trUpper[trLower.indexOf(k)] || k.toUpperCase() : k;
+    btn.onclick = () => insertChar(getTrChar(k));
+    row3Div.appendChild(btn);
+  });
+
+  const backBtn3 = document.createElement('button');
+  backBtn3.className = 'custom-kb-key special';
+  backBtn3.innerHTML = '⌫';
+  backBtn3.style.fontSize = '16px';
+  backBtn3.onclick = () => {
     const inp = document.getElementById('msgInput');
     inp.value = inp.value.slice(0, -1);
   };
-  
+  row3Div.appendChild(backBtn3);
+  kbdWrapper.appendChild(row3Div);
+
+  // Satır 4: 123 + emoji + boşluk (TR EN) + nokta + Git (fotoğraftaki gibi)
+  const row4 = document.createElement('div');
+  row4.className = 'custom-kb-row';
+
+  const numBtn = document.createElement('button');
+  numBtn.className = 'custom-kb-key special';
+  numBtn.innerHTML = '123';
+  numBtn.style.fontSize = '13px';
+  numBtn.onclick = () => {};
+
+  const emojiBtn4 = document.createElement('button');
+  emojiBtn4.className = 'custom-kb-key special';
+  emojiBtn4.innerHTML = '😊';
+  emojiBtn4.style.fontSize = '20px';
+  emojiBtn4.onclick = () => {};
+
   const spaceBtn = document.createElement('button');
   spaceBtn.className = 'custom-kb-key space';
-  spaceBtn.innerHTML = 'Boşluk';
+  spaceBtn.style.position = 'relative';
+  spaceBtn.innerHTML = '<span style="font-size:10px;opacity:0.5;position:absolute;bottom:5px;right:8px;">TR EN</span>';
   spaceBtn.onclick = () => insertChar(' ');
+
+  const dotBtn = document.createElement('button');
+  dotBtn.className = 'custom-kb-key special';
+  dotBtn.innerHTML = '.';
+  dotBtn.style.fontSize = '20px';
+  dotBtn.onclick = () => insertChar('.');
 
   const sendKbdBtn = document.createElement('button');
   sendKbdBtn.className = 'custom-kb-key special';
-  sendKbdBtn.innerHTML = 'Gönder';
+  sendKbdBtn.innerHTML = 'Git';
   sendKbdBtn.style.background = 'var(--primary)';
   sendKbdBtn.style.color = '#fff';
   sendKbdBtn.onclick = () => sendMessage();
 
-  row4.appendChild(backBtn);
+  row4.appendChild(numBtn);
+  row4.appendChild(emojiBtn4);
   row4.appendChild(spaceBtn);
+  row4.appendChild(dotBtn);
   row4.appendChild(sendKbdBtn);
   
   kbdWrapper.appendChild(row4);
